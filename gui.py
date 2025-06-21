@@ -24,6 +24,7 @@ class IRISApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title('IRIS - Infrared Imaging Suite')
+        self.iconbitmap('IRIS_Icon.ico')
         self.geometry('1400x800')
 
         self.current_tabs = set()  # Track created tabs
@@ -35,6 +36,8 @@ class IRISApp(ctk.CTk):
         self.flir_chamfered_data_filenames = {}
         self.flir_filleted_data = {}
         self.flir_filleted_data_filenames = {}
+        self.simulation_data = {}
+        self.simulation_data_filesnames = {}
         self.left_edges = {}
         self.right_edges = {}
         self.top_edges = {}
@@ -68,26 +71,26 @@ class IRISApp(ctk.CTk):
         self.left_frame.pack(side='left', fill='y', padx=5, pady=5)
         self.build_available_experiments_box(self.left_frame)
         self.build_selected_experiments_box(self.left_frame)
+        self.build_status_box(self.left_frame)
 
     # Center Frame for Visualization and Plotting
         self.center_frame = ctk.CTkFrame(self)
         self.center_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
         self.build_center_box(self.center_frame)
 
-    # File Status Frame
-        self.status_frame = ctk.CTkFrame(self)
-        self.status_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
-        self.build_status_box(self.status_frame)
-
-    # Plot Box Frame
+    # Plot Box
         self.plot_box_frame = ctk.CTkFrame(self)
         self.plot_box_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
+        self.plot_box_label = ctk.CTkLabel(self.plot_box_frame, text='Plot Selector', width=225, font=(None, 20))
+        self.plot_box_label.pack(anchor='w')
         self.build_plot_box(self.plot_box_frame)
 
-    # Information Frame
-        self.information_frame = ctk.CTkFrame(self)
-        self.information_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
-        self.build_information_frame(self.information_frame)
+    # System Dashboard
+        self.system_dashboard_frame = ctk.CTkFrame(self)
+        self.system_dashboard_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
+        self.system_dashboard_label = ctk.CTkLabel(self.system_dashboard_frame, text='System Dashboard', width=225, font=(None, 20))
+        self.system_dashboard_label.pack(anchor='n')
+        self.build_information_frame(self.system_dashboard_frame)
 
 # ============================ Building Workspace Components ==========================
     def build_directory_selector(self, parent):
@@ -103,13 +106,13 @@ class IRISApp(ctk.CTk):
     def build_available_experiments_box(self, parent):
         self.available_experiments = ctk.CTkLabel(parent, text='Available Experiments', width=225, font=(None, 20))
         self.available_experiments.pack(anchor='n')
-        self.available_experiments_listbox = ctk.CTkScrollableFrame(parent, height=300)
+        self.available_experiments_listbox = ctk.CTkScrollableFrame(parent, height=150)
         self.available_experiments_listbox.pack(fill='x', expand='false', pady=(0, 10))
 
     def build_selected_experiments_box(self, parent):
         self.selected_experiments_label = ctk.CTkLabel(parent, text='Selected Experiments', width=225, font=(None, 20))
         self.selected_experiments_label.pack(anchor='n')
-        self.selected_experiments_listbox = ctk.CTkScrollableFrame(parent, height=300)
+        self.selected_experiments_listbox = ctk.CTkScrollableFrame(parent, height=150)
         self.selected_experiments_listbox.pack(fill='x', expand='false', pady=(0, 10))
 
     def build_center_box(self, parent):
@@ -119,61 +122,79 @@ class IRISApp(ctk.CTk):
 
     def build_status_box(self, parent):
         self.status_label = ctk.CTkLabel(parent, text='File Status', width=225, font=(None, 20))
-        self.status_label.pack(anchor='w')
+        self.status_label.pack(anchor='n')
+        
+        self.status_frame = ctk.CTkScrollableFrame(parent)
+        self.status_frame.pack(side='top', fill='x', anchor='n', pady=(0,10))
 
-        self.heatmap_label = ctk.CTkLabel(parent, text='Heatmap File:')
+        self.heatmap_label = ctk.CTkLabel(self.status_frame, text='Heatmap File:')
         self.heatmap_label.pack(anchor='w')
 
-        self.heatmap_file_label = ctk.CTkEntry(parent, height=25, justify='right')
+        self.heatmap_file_label = ctk.CTkEntry(self.status_frame, height=25, justify='right')
         self.heatmap_file_label.pack(fill='x', pady=(0, 5), padx=5)
         self.heatmap_file_label.insert(0, 'No file loaded')
         self.heatmap_file_label.configure(state='disabled')
 
-        self.sensors_label = ctk.CTkLabel(parent, text='Sensors File:')
+        self.sensors_label = ctk.CTkLabel(self.status_frame, text='Sensors File:')
         self.sensors_label.pack(anchor='w')
 
-        self.sensors_file_label = ctk.CTkEntry(parent, height=25, justify='right')
+        self.sensors_file_label = ctk.CTkEntry(self.status_frame, height=25, justify='right')
         self.sensors_file_label.pack(fill='x', pady=(0, 5), padx=5)
         self.sensors_file_label.insert(0, 'No file loaded')
         self.sensors_file_label.configure(state='disabled')
 
-        self.chamfered_label = ctk.CTkLabel(parent, text='Chamfered File:')
+        self.chamfered_label = ctk.CTkLabel(self.status_frame, text='Chamfered Flir Temp File:')
         self.chamfered_label.pack(anchor='w')
 
-        self.chamfered_file_label = ctk.CTkEntry(parent, height=25, justify='right')
+        self.chamfered_file_label = ctk.CTkEntry(self.status_frame, height=25, justify='right')
         self.chamfered_file_label.pack(fill='x', pady=(0, 5), padx=5)
         self.chamfered_file_label.insert(0, 'No file loaded')
         self.chamfered_file_label.configure(state='disabled')
 
-        self.filleted_label = ctk.CTkLabel(parent, text='Filleted File:')
+        self.filleted_label = ctk.CTkLabel(self.status_frame, text='Filleted Flir Temp File:')
         self.filleted_label.pack(anchor='w')
 
-        self.filleted_file_label = ctk.CTkEntry(parent, height=25, justify='right')
+        self.filleted_file_label = ctk.CTkEntry(self.status_frame, height=25, justify='right')
         self.filleted_file_label.pack(fill='x', pady=(0, 5), padx=5)
         self.filleted_file_label.insert(0, 'No file loaded')
         self.filleted_file_label.configure(state='disabled')
 
-    def build_plot_box(self, parent):
-        self.plot_box_label = ctk.CTkLabel(parent, text='Plot Selector', width=225, font=(None, 20))
-        self.plot_box_label.pack(anchor='w')
+        self.simulation_label = ctk.CTkLabel(self.status_frame, text='Simulation File:')
+        self.simulation_label.pack(anchor='w')
 
+        self.simulation_file_label = ctk.CTkEntry(self.status_frame, height=25, justify='right')
+        self.simulation_file_label.pack(fill='x', pady=(0, 5), padx=5)
+        self.simulation_file_label.insert(0, 'No file loaded')
+        self.simulation_file_label.configure(state='disabled')
+
+    def build_plot_box(self, parent):
         self.plot_heatmap_frame = ctk.CTkFrame(parent)
         self.plot_heatmap_frame.pack(anchor='w', fill='x', expand=True, padx=5, pady=5)
 
-        self.fin_box_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Fin Box', command=self.plot_heat_map)
-        self.fin_box_checkbox.pack(anchor='w', padx=5, pady=5)
-
-        self.midline_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Midline', command=self.plot_heat_map)
-        self.midline_checkbox.pack(anchor='w', padx=5, pady=5)
-
-        self.thermocouples_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Thermocouple Locations', command=self.plot_heat_map)
-        self.thermocouples_checkbox.pack(anchor='w', padx=5, pady=5)
-        
         self.plot_heatmap_btn = ctk.CTkButton(self.plot_heatmap_frame, text='Plot Heat Map', command=self.plot_heat_map)
         self.plot_heatmap_btn.pack(fill='x', expand=True, padx=5, pady=5)
 
-        self.plot_linear_profile_btn = ctk.CTkButton(parent, text='Plot Linear Temperature Profile', command=self.plot_linear_profile)
+        self.fin_box_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Fin Box', command=self.plot_heat_map)
+        self.fin_box_checkbox.pack(anchor='w', padx=5, pady=5)
+        self.fin_box_checkbox.select()
+
+        self.midline_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Midline', command=self.plot_heat_map)
+        self.midline_checkbox.pack(anchor='w', padx=5, pady=5)
+        self.midline_checkbox.select()
+
+        self.thermocouples_checkbox = ctk.CTkCheckBox(self.plot_heatmap_frame, text='Show Thermocouple Locations', command=self.plot_heat_map)
+        self.thermocouples_checkbox.pack(anchor='w', padx=5, pady=5)
+        self.thermocouples_checkbox.select()
+
+        self.linear_plot_frame = ctk.CTkFrame(parent)
+        self.linear_plot_frame.pack(anchor='w', fill='x', expand=True, padx=5, pady=5)
+        
+        self.plot_linear_profile_btn = ctk.CTkButton(self.linear_plot_frame, text='Plot Linear Temperature Profile', command=self.plot_linear_profile)
         self.plot_linear_profile_btn.pack(fill='x', expand=True, padx=5, pady=5)
+
+        self.simulation_checkbox = ctk.CTkCheckBox(self.linear_plot_frame, text='Include Simulation Results', command=self.plot_linear_profile)
+        self.simulation_checkbox.pack(anchor='w', padx=5, pady=5)
+        self.simulation_checkbox.select()
 
         self.plot_temporal_data_frame = ctk.CTkFrame(parent)
         self.plot_temporal_data_frame.pack(anchor='w', fill='x', expand=True, padx=5, pady=5)
@@ -198,24 +219,22 @@ class IRISApp(ctk.CTk):
         self.plot_flow_rate.select()
 
     def build_information_frame(self, parent):
-        self.information_label = ctk.CTkLabel(parent, text='Thermocouples, (→,↓)', width=225, font=(None, 20))
+        self.information_frame = ctk.CTkFrame(parent)
+        self.information_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
+
+        self.information_label = ctk.CTkLabel(self.information_frame, text='Thermocouples, (→,↓)', width=225, font=(None, 18))
         self.information_label.pack(anchor='w')
 
-        self.chamfered_tc_label = ctk.CTkLabel(parent, text='Chamfered TC Location')
+        self.chamfered_tc_label = ctk.CTkLabel(self.information_frame, text='Chamfered TC Location')
         self.chamfered_tc_label.pack(anchor='w')
 
-        self.chamfered_tc_location = ctk.CTkEntry(parent, height=25, justify='right')
+        self.chamfered_tc_location = ctk.CTkEntry(self.information_frame, height=25, justify='right')
         self.chamfered_tc_location.pack(fill='x', pady=(0, 5), padx=5)
         self.chamfered_tc_location.insert(0, 'Select Heatmap')
         self.chamfered_tc_location.configure(state='disabled')
 
-        self.filleted_tc_label = ctk.CTkLabel(parent, text='Filleted TC Location')
+        self.filleted_tc_label = ctk.CTkLabel(self.information_frame, text='Filleted TC Location')
         self.filleted_tc_label.pack(anchor='w')
-
-        self.filleted_tc_location = ctk.CTkEntry(parent, height=25, justify='right')
-        self.filleted_tc_location.pack(fill='x', pady=(0, 5), padx=5)
-        self.filleted_tc_location.insert(0, 'Select Heatmap')
-        self.filleted_tc_location.configure(state='disabled')
 
 
 # ============================ File Browser Functions ==========================
@@ -260,6 +279,7 @@ class IRISApp(ctk.CTk):
         self.import_sensors(experiment_path)
         self.import_flir_chamfered(experiment_path)
         self.import_flir_filleted(experiment_path)
+        self.import_simulation_data(experiment_path)
         self.plate_edge_detection(folder_name)
         self.find_thermocouples(folder_name)
         self.plot_combined_linear_profile()
@@ -295,6 +315,8 @@ class IRISApp(ctk.CTk):
         self.flir_chamfered_data_filenames.clear()
         self.flir_filleted_data.clear()
         self.flir_filleted_data_filenames.clear()
+        self.simulation_data.clear()
+        self.simulation_data_filesnames.clear()
         self.left_edges.clear()
         self.right_edges.clear()
         self.top_edges.clear()
@@ -302,7 +324,6 @@ class IRISApp(ctk.CTk):
         self.midline.clear()
         self.c_tc_location.clear()
         self.f_tc_location.clear()
-
 
         self.dir_entry.delete(0, 'end')
 
@@ -332,6 +353,8 @@ class IRISApp(ctk.CTk):
         self.flir_chamfered_data_filenames.pop(folder_name, None)
         self.flir_filleted_data.pop(folder_name, None)
         self.flir_filleted_data_filenames.pop(folder_name, None)
+        self.simulation_data.pop(folder_name, None)
+        self.simulation_data_filesnames.pop(folder_name, None)
         self.left_edges.pop(folder_name, None)
         self.right_edges.pop(folder_name, None)
         self.top_edges.pop(folder_name, None)
@@ -446,6 +469,48 @@ class IRISApp(ctk.CTk):
             self.flir_filleted_data[experiment] = 'Filleted Flir Data File Not Found'
             self.flir_filleted_data_filenames[experiment] = 'No File Found in Directory'
 
+    def import_simulation_data(self, folder_path):
+        simulation_file_names = config.REQUIRED_FILES['Simulation Data']
+        experiment = os.path.basename(folder_path)
+        for file in simulation_file_names:
+            file_path = os.path.join(folder_path, file)
+            if os.path.isfile(file_path):
+                try:
+                    with open(file_path, 'r') as temp_file:
+                        df = temp_file.read()          
+                                
+                    lines = df.strip().split('\n')
+                    lines = lines[1:-1]
+                    locations = []
+                    temperatures = []
+
+                    for line in lines:
+                        parts = line.strip().split('\t')
+                        if len(parts) == 2:
+                            loc = float(parts[0])
+                            temp = float(parts[1])
+                            locations.append(loc)
+                            temperatures.append(temp)
+
+                    df = pd.DataFrame({'Location': locations,
+                                        'Temperature': temperatures})
+                    
+
+                    min_pos = df['Location'].min()
+                    max_pos = df['Location'].max()
+                    df['Location'] = ((df['Location'] - min_pos) / (max_pos - min_pos)) * config.FIN_HEIGHT
+
+                    df['Temperature'] = df['Temperature']-273.15
+                    
+                    self.simulation_data[experiment] = df
+                    self.simulation_data_filesnames[experiment] = file
+                    break
+                except Exception:
+                    continue
+        else:
+            self.simulation_data[experiment] = 'Simulation Data File Not Found'
+            self.simulation_data_filesnames[experiment] = 'No File Found in Directory'
+
     def plate_edge_detection(self, folder_name):
         if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
             return
@@ -513,8 +578,8 @@ class IRISApp(ctk.CTk):
         if tab_name == 'Combined Plot':
             heatmap_status = 'N/A'
             heatmap_box_color = 'grey'
-            chamfered_coords = 'No Heatmap Selected'
-            filleted_coords = 'No Heatmap Selected'
+            chamfered_text = 'No Heatmap Selected'
+            filleted_text = 'No Heatmap Selected'
         elif tab_name in self.heat_map_data_filenames and self.heat_map_data_filenames[tab_name] != 'No File Found in Directory':
             heatmap_status = self.heat_map_data_filenames[tab_name]
             heatmap_box_color = 'green'
@@ -525,8 +590,8 @@ class IRISApp(ctk.CTk):
         else:
             heatmap_status = 'Heatmap Not Found'
             heatmap_box_color = 'red'
-            chamfered_coords = 'No Heatmap Selected'
-            filleted_coords = 'No Heatmap Selected'
+            chamfered_text = 'No Heatmap Selected'
+            filleted_text = 'No Heatmap Selected'
 
         # Sensors file
         if tab_name == 'Combined Plot':
@@ -561,6 +626,17 @@ class IRISApp(ctk.CTk):
             filleted_status = 'Filleted FLIR Data Not Found'
             filleted_box_color = 'red'
 
+        # Simulation data
+        if tab_name == 'Combined Plot':
+            simulation_file_status = 'N/A'
+            simulation_file_box_color = 'grey'
+        elif tab_name in self.simulation_data_filesnames and self.simulation_data_filesnames[tab_name] != 'No File Found in Directory':
+            simulation_file_status = self.simulation_data_filesnames[tab_name]
+            simulation_file_box_color = 'green'
+        else:
+            simulation_file_status = 'Simulation Results Not Found'
+            simulation_file_box_color = 'red'
+
         # Update entries
         self.heatmap_file_label.configure(state='normal')
         self.heatmap_file_label.delete(0, 'end')
@@ -582,6 +658,11 @@ class IRISApp(ctk.CTk):
         self.filleted_file_label.insert(0, filleted_status)
         self.filleted_file_label.configure(state='disabled', fg_color=filleted_box_color)
 
+        self.simulation_file_label.configure(state='normal')
+        self.simulation_file_label.delete(0, 'end')
+        self.simulation_file_label.insert(0, simulation_file_status)
+        self.simulation_file_label.configure(state='disabled', fg_color=simulation_file_box_color)
+
         self.chamfered_tc_location.configure(state='normal')
         self.chamfered_tc_location.delete(0, 'end')
         self.chamfered_tc_location.insert(0, chamfered_text)
@@ -592,6 +673,7 @@ class IRISApp(ctk.CTk):
         self.filleted_tc_location.insert(0, filleted_text)
         self.filleted_tc_location.configure(state='disabled')
 
+        self.plot_heat_map()
 
 # ============================ Plot Functions ==========================
     def plot_heat_map(self):
@@ -724,7 +806,13 @@ class IRISApp(ctk.CTk):
         y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
 
         fig, ax = plt.subplots(figsize=config.FIGURE_SIZE)
-        ax.plot(y_positions_mm, temperature_profile, color='red', linewidth=2)
+        ax.plot(y_positions_mm, temperature_profile, color='red', linewidth=2, label='Experimental Temperature Profile')
+
+        if (self.simulation_checkbox.get() == 1
+            and isinstance(self.simulation_data[tab_name], pd.DataFrame)
+            and not self.simulation_data[tab_name].empty
+        ):
+            ax.plot(self.simulation_data[tab_name]['Location'], self.simulation_data[tab_name]['Temperature'], color='blue', linewidth=2, label='Simulated Temperature Profile')
 
         ax.set_title(f"Linear Temperature Profile at Midline: {tab_name}")
         ax.set_xlabel('Fin Height (mm)')
@@ -741,6 +829,7 @@ class IRISApp(ctk.CTk):
         ax.text(0.99, 0.99, 'Filleted Side', transform=ax.transAxes,
             fontsize=10, color='black', verticalalignment='top', horizontalalignment='right')
 
+        ax.legend(loc='lower right')
 
         master_frame = self.experiments_tabs.tab(tab_name)
 
@@ -789,7 +878,9 @@ class IRISApp(ctk.CTk):
         ax.set_xlim(0, config.FIN_HEIGHT)
         ax.set_ylabel('Temperature (°C)')
         ax.grid(True)
-        ax.legend(loc='upper right')
+        handles, labels = ax.get_legend_handles_labels()
+        if labels:
+                ax.legend(loc='upper right')
 
         ax.text(0.01, 0.01, 'Chamfered Side', transform=ax.transAxes,
                 fontsize=10, color='black', verticalalignment='bottom', horizontalalignment='left')
@@ -904,11 +995,6 @@ class IRISApp(ctk.CTk):
             ax2.spines['right'].set_color('blue')
 
         ax1.set_title(f"Temperature and Flow Rate vs Time for Experiment: {tab_name}")
-
-        lines = ax1.get_lines()
-        print(f"Number of lines on ax1: {len(lines)}")
-        for line in lines:
-            print(f"Label: {line.get_label()}")
 
         # ========== Legend and Explanatory Box ==========
         custom_lines = [

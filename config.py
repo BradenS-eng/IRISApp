@@ -6,7 +6,8 @@ REQUIRED_FILES = {
     'Heat Map': ['Heat_Map_Final_Frame.csv', 'Ti_Fin_Flir.csv'],
     'Chamfered Side, Flir': ['Chamfered_Side_TC_Flir.txt'],
     'Filleted Side, Flir': ['Filleted_Side_TC_Flir.txt'],
-    'External Sensors, Arduino': ['sensors.txt']
+    'External Sensors, Arduino': ['sensors.txt'],
+    'Simulation Data': ['IRIS-ANSYS']
 }
 
 #-----------------------------------------
