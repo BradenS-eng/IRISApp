@@ -24,7 +24,6 @@ class IRISApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title('IRIS - Infrared Imaging Suite')
-        self.iconbitmap('IRIS_Icon.ico')
         self.geometry('1400x800')
 
         self.current_tabs = set()  # Track created tabs
@@ -236,6 +235,10 @@ class IRISApp(ctk.CTk):
         self.filleted_tc_label = ctk.CTkLabel(self.information_frame, text='Filleted TC Location')
         self.filleted_tc_label.pack(anchor='w')
 
+        self.filleted_tc_location = ctk.CTkEntry(self.information_frame, height=25, justify='right')
+        self.filleted_tc_location.pack(fill='x', pady=(0, 5), padx=5)
+        self.filleted_tc_location.insert(0, 'Select Heatmap')
+        self.filleted_tc_location.configure(state='disabled')
 
 # ============================ File Browser Functions ==========================
     def browse_directory(self):
