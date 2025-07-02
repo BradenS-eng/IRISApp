@@ -816,13 +816,19 @@ class IRISApp(ctk.CTk):
             filleted_coords = self.f_tc_location[tab_name]
             chamfered_text = f"({chamfered_coords[0]}, {chamfered_coords[1]})"
             filleted_text = f"({filleted_coords[0]}, {filleted_coords[1]})"
-            ardunio_fillet_text = f"{self.averages[tab_name]['FilletTemp_Arduino']:.5f}"
-            ardunio_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}"
-            flir_fillet_text = f"{self.averages[tab_name]['FilletTemp_Flir']:.5f}"
-            flir_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Flir']:.5f}"
-            arduino_fluid_temp_text = f"{self.averages[tab_name]['FluidTemp_Arduino']:.5f}"
-            arduino_flow_rate_text = f"{self.averages[tab_name]['FlowRate_Arduino']:.5f}"
+            try:
+                ardunio_fillet_text = f"{self.averages[tab_name]['FilletTemp_Arduino']:.5f}"
+                ardunio_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}"
+                arduino_fluid_temp_text = f"{self.averages[tab_name]['FluidTemp_Arduino']:.5f}"
+                arduino_flow_rate_text = f"{self.averages[tab_name]['FlowRate_Arduino']:.5f}"
+            except Exception:
+                pass
 
+            try:
+                flir_fillet_text = f"{self.averages[tab_name]['FilletTemp_Flir']:.5f}"
+                flir_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Flir']:.5f}"
+            except Exception:
+                pass
 
         else:
             heatmap_status = 'Heatmap Not Found'
@@ -1232,40 +1238,52 @@ class IRISApp(ctk.CTk):
         time_series_list = []
 
         # ========== Plotting ==========
-        if plot_tc:
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['ChamferTemp_C'], color='green', linestyle='-', label='TC Reading, Chamfered Edge (Inst)')
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FilletTemp_C'], color='red', linestyle='-', label='TC Reading, Filleted Edge (Inst)')
+        try:
+            if plot_tc:
+                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['ChamferTemp_C'], color='green', linestyle='-', label='TC Reading, Chamfered Edge (Inst)')
+                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FilletTemp_C'], color='red', linestyle='-', label='TC Reading, Filleted Edge (Inst)')
 
-            ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Arduino'], color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
-            ax1.axhline(y=self.averages[tab_name]['FilletTemp_Arduino'], color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
+                ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Arduino'], color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
+                ax1.axhline(y=self.averages[tab_name]['FilletTemp_Arduino'], color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
 
-            time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+                time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+        except Exception:
+            pass
 
-        if plot_flir:
-            ax1.plot(self.flir_chamfered_data[tab_name]['time'], self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'], color='cyan', linestyle='-', label='FLIR Reading, Chamfered Edge (Inst)')
-            ax1.plot(self.flir_filleted_data[tab_name]['time'], self.flir_filleted_data[tab_name]['Filleted_Side_TC'], color='orange', linestyle='-', label='FLIR Reading, Filleted Edge (Inst)')
+        try:
+            if plot_flir:
+                ax1.plot(self.flir_chamfered_data[tab_name]['time'], self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'], color='cyan', linestyle='-', label='FLIR Reading, Chamfered Edge (Inst)')
+                ax1.plot(self.flir_filleted_data[tab_name]['time'], self.flir_filleted_data[tab_name]['Filleted_Side_TC'], color='orange', linestyle='-', label='FLIR Reading, Filleted Edge (Inst)')
 
-            ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Flir'], color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
-            ax1.axhline(y=self.averages[tab_name]['FilletTemp_Flir'], color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
+                ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Flir'], color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
+                ax1.axhline(y=self.averages[tab_name]['FilletTemp_Flir'], color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
 
-            time_series_list.append(self.flir_chamfered_data[tab_name]['time'])
-            time_series_list.append(self.flir_filleted_data[tab_name]['time'])
+                time_series_list.append(self.flir_chamfered_data[tab_name]['time'])
+                time_series_list.append(self.flir_filleted_data[tab_name]['time'])
+        except Exception:
+            pass
 
-        if plot_inlet:
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FluidTemp_C'], color='purple', linestyle='-', label='Fluid Inlet Temp (Inst)')
+        try:
+            if plot_inlet:
+                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FluidTemp_C'], color='purple', linestyle='-', label='Fluid Inlet Temp (Inst)')
 
-            ax1.axhline(y=self.averages[tab_name]['FluidTemp_Arduino'], color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
+                ax1.axhline(y=self.averages[tab_name]['FluidTemp_Arduino'], color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
 
-            time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+                time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+        except Exception:
+            pass
 
-        if plot_flow:
-            target_ax = ax2 if (plot_tc or plot_flir or plot_inlet) else ax1  # Use ax1 if no temperatures are selected
+        try:
+            if plot_flow:
+                target_ax = ax2 if (plot_tc or plot_flir or plot_inlet) else ax1  # Use ax1 if no temperatures are selected
 
-            target_ax.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FlowRate_L_per_min'], color='blue', linestyle='-', label='Flow Rate (Inst)')
+                target_ax.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FlowRate_L_per_min'], color='blue', linestyle='-', label='Flow Rate (Inst)')
 
-            target_ax.axhline(y=self.averages[tab_name]['FlowRate_Arduino'], color='blue', linestyle='--', label='Flow Rate (Avg)')
+                target_ax.axhline(y=self.averages[tab_name]['FlowRate_Arduino'], color='blue', linestyle='--', label='Flow Rate (Avg)')
 
-            time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+                time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
+        except Exception:
+            pass
 
         # ========== Axis Formatting ==========
         if time_series_list:
