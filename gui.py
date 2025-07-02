@@ -12,6 +12,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
+from scipy.ndimage import gaussian_filter1d
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
@@ -44,6 +45,8 @@ class IRISApp(ctk.CTk):
         self.midline = {}
         self.c_tc_location = {}
         self.f_tc_location = {}
+        self.is_vertical = {}
+        self.averages = {}
 
         self.current_plot_canvas = {}
 
@@ -240,6 +243,67 @@ class IRISApp(ctk.CTk):
         self.filleted_tc_location.insert(0, 'Select Heatmap')
         self.filleted_tc_location.configure(state='disabled')
 
+        self.averages_frame = ctk.CTkFrame(parent)
+        self.averages_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
+
+        self.averages_label = ctk.CTkLabel(self.averages_frame, text='Averages', width=225, font=(None, 18))
+        self.averages_label.grid(row=0, column=0, columnspan=2, sticky='w', padx=5, pady=(0, 10))   
+
+        self.chamfered_ave_label = ctk.CTkLabel(self.averages_frame, text='Ard-C (°C)')
+        self.chamfered_ave_label.grid(row=1, column=0, sticky='w', padx=5)
+
+        self.chamfered_ave_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.chamfered_ave_box.grid(row=2, column=0, padx=5, pady=(0, 5), sticky='ew')
+        self.chamfered_ave_box.insert(0, 'N/A')
+        self.chamfered_ave_box.configure(state='disabled')
+
+        self.filleted_ave_label = ctk.CTkLabel(self.averages_frame, text='Ard-F (°C)')
+        self.filleted_ave_label.grid(row=1, column=1, sticky='w', padx=5)
+
+        self.filleted_ave_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.filleted_ave_box.grid(row=2, column=1, padx=5, pady=(0, 5), sticky='ew')
+        self.filleted_ave_box.insert(0, 'N/A')
+        self.filleted_ave_box.configure(state='disabled')
+
+        self.averages_frame.grid_columnconfigure(0, weight=1)
+        self.averages_frame.grid_columnconfigure(1, weight=1)
+
+        self.chamfered_flir_label = ctk.CTkLabel(self.averages_frame, text='Flir-C (°C)')
+        self.chamfered_flir_label.grid(row=3, column=0, sticky='w', padx=5)
+
+        self.chamfered_flir_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.chamfered_flir_box.grid(row=4, column=0, padx=5, pady=(0, 5), sticky='ew')
+        self.chamfered_flir_box.insert(0, 'N/A')
+        self.chamfered_flir_box.configure(state='disabled')
+
+        self.filleted_flir_label = ctk.CTkLabel(self.averages_frame, text='Flir-F (°C)')
+        self.filleted_flir_label.grid(row=3, column=1, sticky='w', padx=5)
+
+        self.filleted_flir_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.filleted_flir_box.grid(row=4, column=1, padx=5, pady=(0, 5), sticky='ew')
+        self.filleted_flir_box.insert(0, 'N/A')
+        self.filleted_flir_box.configure(state='disabled')
+
+        self.fluid_temp_label = ctk.CTkLabel(self.averages_frame, text='Fluid Temp. (°C)')
+        self.fluid_temp_label.grid(row=5, column=0, sticky='w', padx=5)
+
+        self.fluid_temp_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.fluid_temp_box.grid(row=6, column=0, padx=5, pady=(0, 5), sticky='ew')
+        self.fluid_temp_box.insert(0, 'N/A')
+        self.fluid_temp_box.configure(state='disabled')
+
+        self.flowrate_label = ctk.CTkLabel(self.averages_frame, text='Flow Rate (L/min)')
+        self.flowrate_label.grid(row=5, column=1, sticky='w', padx=5)
+
+        self.flowrate_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.flowrate_box.grid(row=6, column=1, padx=5, pady=(0, 5), sticky='ew')
+        self.flowrate_box.insert(0, 'N/A')
+        self.flowrate_box.configure(state='disabled')
+
+        self.averages_frame.grid_columnconfigure(0, weight=1)
+        self.averages_frame.grid_columnconfigure(1, weight=1)
+
+
 # ============================ File Browser Functions ==========================
     def browse_directory(self):
         selected_dir = filedialog.askdirectory()
@@ -283,8 +347,10 @@ class IRISApp(ctk.CTk):
         self.import_flir_chamfered(experiment_path)
         self.import_flir_filleted(experiment_path)
         self.import_simulation_data(experiment_path)
+        self.check_orientation(folder_name)
         self.plate_edge_detection(folder_name)
         self.find_thermocouples(folder_name)
+        self.get_averages(folder_name)
         self.plot_combined_linear_profile()
 
         name_button_frame = ctk.CTkFrame(self.selected_experiments_listbox)
@@ -327,6 +393,8 @@ class IRISApp(ctk.CTk):
         self.midline.clear()
         self.c_tc_location.clear()
         self.f_tc_location.clear()
+        self.is_vertical.clear()
+        self.averages.clear()
 
         self.dir_entry.delete(0, 'end')
 
@@ -365,21 +433,20 @@ class IRISApp(ctk.CTk):
         self.midline.pop(folder_name, None)
         self.c_tc_location.pop(folder_name, None)
         self.f_tc_location.pop(folder_name, None)
+        self.is_vertical.pop(folder_name, None)
+        self.averages.pop(folder_name, None)
 
         self.plot_combined_linear_profile()
         
-        # Collect existing folder names from available experiments buttons
         available_folders = []
         for widget in self.available_experiments_listbox.winfo_children():
             if isinstance(widget, ctk.CTkButton):
                 available_folders.append(widget.cget("text"))
                 widget.destroy()  # Clear all buttons to rebuild sorted list
 
-        # Add the folder back
         available_folders.append(folder_name)
         available_folders = sorted(available_folders, key=str.lower)  # case-insensitive sort
 
-        # Recreate buttons in sorted order
         for folder in available_folders:
             btn = ctk.CTkButton(self.available_experiments_listbox,
                                 text=folder,
@@ -501,9 +568,10 @@ class IRISApp(ctk.CTk):
 
                     min_pos = df['Location'].min()
                     max_pos = df['Location'].max()
-                    df['Location'] = ((df['Location'] - min_pos) / (max_pos - min_pos)) * config.FIN_HEIGHT
-
+                    df['Location'] = ((max_pos - df['Location']) / (max_pos - min_pos)) * config.FIN_HEIGHT
+                    
                     df['Temperature'] = df['Temperature']-273.15
+                    df = df.iloc[::-1].reset_index(drop=True)
                     
                     self.simulation_data[experiment] = df
                     self.simulation_data_filesnames[experiment] = file
@@ -513,6 +581,79 @@ class IRISApp(ctk.CTk):
         else:
             self.simulation_data[experiment] = 'Simulation Data File Not Found'
             self.simulation_data_filesnames[experiment] = 'No File Found in Directory'
+
+    def check_orientation(self, folder_name):
+        if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
+                return
+
+        data = self.heat_map_data[folder_name]
+        top_box = data.iloc[0:7, :].values
+        bottom_box = data.iloc[-7:, :].values
+        left_box = data.iloc[:, 0:7].values
+        right_box = data.iloc[:, -7:].values
+
+        def orientation_score(box):
+            box = np.asarray(box)
+
+            grad_vertical, grad_horizontal = np.gradient(box)
+            x_deviation = np.std(grad_horizontal[1:-1, 1:-1])
+            y_deviation = np.std(grad_vertical[1:-1, 1:-1])
+            grad_score = np.abs(x_deviation - y_deviation)
+
+            strength_total = 0
+            sharpness_total = 0
+            count = 0
+
+            if box.shape[0] > box.shape[1]:
+                for j in range(box.shape[1]):
+                    arr = box[:, j]
+                    gradient = np.abs(np.gradient(arr))
+                    peak_value = np.max(gradient)
+                    sorted_grad = np.sort(gradient)[::-1]
+                    sharpness = peak_value - sorted_grad[1] if len(sorted_grad) > 1 else 0
+
+                    strength_total += peak_value
+                    sharpness_total += sharpness
+                    count += 1
+
+            elif box.shape[0] < box.shape[1]:
+                for i in range(box.shape[0]):
+                    arr = box[i, :]
+                    gradient = np.abs(np.gradient(arr))
+                    peak_value = np.max(gradient)
+                    sorted_grad = np.sort(gradient)[::-1]
+                    sharpness = peak_value - sorted_grad[1] if len(sorted_grad) > 1 else 0
+
+                    strength_total += peak_value
+                    sharpness_total += sharpness
+                    count += 1
+
+            else:
+                return grad_score
+
+            avg_strength = strength_total / count if count > 0 else 0
+            avg_sharpness = sharpness_total / count if count > 0 else 0
+
+            return (0.4 * grad_score) + (0.3 * avg_strength) + (0.3 * avg_sharpness)
+
+        scores = {
+            'top': orientation_score(top_box),
+            'bottom': orientation_score(bottom_box),
+            'left': orientation_score(left_box),
+            'right': orientation_score(right_box)
+        }
+
+        vertical = scores['top'] + scores['bottom']
+        horizontal = scores['left'] + scores['right']
+
+        if vertical > horizontal:
+            # Likely vertical fin orientation (up/down)
+            self.is_vertical[folder_name] = False
+        elif horizontal > vertical:
+            # Likely horizontal fin orientation (left/right)
+            self.is_vertical[folder_name] = True
+        else:
+            pass      
 
     def plate_edge_detection(self, folder_name):
         if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
@@ -524,50 +665,123 @@ class IRISApp(ctk.CTk):
         top_edge_locations = []
         bottom_edge_locations = []
 
-        for y in range(rows):
-            row = self.heat_map_data[folder_name].iloc[y, :].values
-            gradients = np.gradient(row)
+        if self.is_vertical[folder_name] == True:
+            for y in range(rows):
+                row = self.heat_map_data[folder_name].iloc[y, :].values
+                gradients = np.gradient(row)
 
-            left_index = np.argmax(gradients)
-            right_index = np.argmin(gradients)
+                left_index = np.argmax(gradients)
+                right_index = np.argmin(gradients)
 
-            left_edge_locations.append(left_index)
-            right_edge_locations.append(right_index)
+                left_edge_locations.append(left_index)
+                right_edge_locations.append(right_index)
 
-        self.left_edges[folder_name] = statistics.mode(left_edge_locations)
-        self.right_edges[folder_name] = statistics.mode(right_edge_locations)
+            self.left_edges[folder_name] = statistics.mode(left_edge_locations)
+            self.right_edges[folder_name] = statistics.mode(right_edge_locations)
 
-        for x in range(self.left_edges[folder_name],self.right_edges[folder_name]):
-            column = self.heat_map_data[folder_name].iloc[:,x].values
-            top_window = column[:config.EDGE_SENSITIVITY]
-            bottom_window = column[-config.EDGE_SENSITIVITY:]
+            for x in range(self.left_edges[folder_name],self.right_edges[folder_name]):
+                column = self.heat_map_data[folder_name].iloc[:,x].values
+                smoothed_column = gaussian_filter1d(column, sigma=1)
+                top_window = smoothed_column[:config.EDGE_SENSITIVITY]
+                bottom_window = smoothed_column[-config.EDGE_SENSITIVITY:]
 
-            top_gradients = np.gradient(top_window)
-            top_index = np.argmax(top_gradients)
+                top_gradients = np.gradient(top_window)
+                top_index = np.argmax(top_gradients)
 
-            bottom_gradients = np.gradient(bottom_window)
-            bottom_index = len(column) - config.EDGE_SENSITIVITY + np.argmin(bottom_gradients)
+                bottom_gradients = np.gradient(bottom_window)
+                bottom_index = len(column) - config.EDGE_SENSITIVITY + np.argmin(bottom_gradients)
 
-            top_edge_locations.append(top_index)
-            bottom_edge_locations.append(bottom_index)
+                top_edge_locations.append(top_index)
+                bottom_edge_locations.append(bottom_index)
+                
+            self.top_edges[folder_name] = statistics.mode(top_edge_locations)
+            self.bottom_edges[folder_name] = statistics.mode(bottom_edge_locations)
 
-        self.top_edges[folder_name] = statistics.mode(top_edge_locations)
-        self.bottom_edges[folder_name] = statistics.mode(bottom_edge_locations)
+            self.midline[folder_name] = (self.right_edges[folder_name] + self.left_edges[folder_name]) / 2
+            
+        elif self.is_vertical[folder_name] == False:
+            for x in range(cols):
+                column = self.heat_map_data[folder_name].iloc[:, x].values
+                gradients = np.gradient(column)
 
-        self.midline[folder_name] = (self.right_edges[folder_name] + self.left_edges[folder_name]) / 2
+                top_index = np.argmax(gradients)
+                bottom_index = np.argmin(gradients)
+
+                top_edge_locations.append(top_index)
+                bottom_edge_locations.append(bottom_index)
+
+            self.top_edges[folder_name] = statistics.mode(top_edge_locations)
+            self.bottom_edges[folder_name] = statistics.mode(bottom_edge_locations)
+
+            for y in range(self.top_edges[folder_name], self.bottom_edges[folder_name]):
+                row = self.heat_map_data[folder_name].iloc[y, 5:-5].values
+                smoothed_row = gaussian_filter1d(row, sigma=1)
+                left_window = smoothed_row[:config.EDGE_SENSITIVITY]
+                right_window = smoothed_row[-config.EDGE_SENSITIVITY:]
+
+                left_gradients = np.gradient(left_window)
+                left_index = np.argmax(left_gradients)
+
+                right_gradients = np.gradient(right_window)
+                right_index = len(row) - config.EDGE_SENSITIVITY + np.argmin(right_gradients)
+
+                right_edge_locations.append(right_index)
+                left_edge_locations.append(left_index)
+
+            self.right_edges[folder_name] = statistics.mode(right_edge_locations)
+            self.left_edges[folder_name] = statistics.mode(left_edge_locations)
+
+            self.midline[folder_name] = (self.top_edges[folder_name] + self.bottom_edges[folder_name]) / 2
 
     def find_thermocouples(self, folder_name):
         if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
             return
         
-        chamfered_x_pixels = math.trunc(((config.FIN_WIDTH-config.TC_C_HLOC)/config.FIN_WIDTH)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
-        chamfered_y_pixels = math.trunc((config.TC_C_VLOC/config.FIN_HEIGHT)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
-        self.c_tc_location[folder_name] = (chamfered_x_pixels, chamfered_y_pixels)
+        if self.is_vertical[folder_name] == True:
+            chamfered_x_pixels = math.trunc(((config.FIN_WIDTH-config.TC_C_HLOC)/config.FIN_WIDTH)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
+            chamfered_y_pixels = math.trunc((config.TC_C_VLOC/config.FIN_HEIGHT)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
+            self.c_tc_location[folder_name] = (chamfered_x_pixels, chamfered_y_pixels)
 
-        filleted_x_pixels = math.trunc(((config.FIN_WIDTH-config.TC_F_HLOC)/config.FIN_WIDTH)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
-        filleted_y_pixels = math.trunc(((config.FIN_HEIGHT-config.TC_F_VLOC)/config.FIN_HEIGHT)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
-        self.f_tc_location[folder_name] = (filleted_x_pixels, filleted_y_pixels)
+            filleted_x_pixels = math.trunc(((config.FIN_WIDTH-config.TC_F_HLOC)/config.FIN_WIDTH)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
+            filleted_y_pixels = math.trunc(((config.FIN_HEIGHT-config.TC_F_VLOC)/config.FIN_HEIGHT)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
+            self.f_tc_location[folder_name] = (filleted_x_pixels, filleted_y_pixels)
 
+        elif self.is_vertical[folder_name] == False:
+            chamfered_x_pixels = math.trunc(((config.FIN_HEIGHT-config.TC_C_VLOC)/config.FIN_HEIGHT)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
+            chamfered_y_pixels = math.trunc(((config.FIN_WIDTH-config.TC_C_HLOC)/config.FIN_WIDTH)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
+            self.c_tc_location[folder_name] = (chamfered_x_pixels, chamfered_y_pixels)
+
+            filleted_x_pixels = math.trunc((config.TC_F_VLOC/config.FIN_HEIGHT)*(self.right_edges[folder_name]-self.left_edges[folder_name]+1))+self.left_edges[folder_name]
+            filleted_y_pixels = math.trunc(((config.FIN_WIDTH-config.TC_F_HLOC)/config.FIN_WIDTH)*(self.bottom_edges[folder_name]-self.top_edges[folder_name]+1))+self.top_edges[folder_name]
+            self.f_tc_location[folder_name] = (filleted_x_pixels, filleted_y_pixels)
+
+    def get_averages(self, folder_name):
+        if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
+                return
+
+        if folder_name not in self.averages:
+            self.averages[folder_name] = {
+                'ChamferTemp_Arduino': None,
+                'FilletTemp_Arduino': None,
+                'FluidTemp_Arduino': None,
+                'FlowRate_Arduino': None,
+                'ChamferTemp_Flir': None,
+                'FilletTemp_Flir': None
+            }
+
+        try:
+            self.averages[folder_name]['ChamferTemp_Arduino'] = self.sensors_data[folder_name]['ChamferTemp_C'].mean()
+            self.averages[folder_name]['FilletTemp_Arduino'] = self.sensors_data[folder_name]['FilletTemp_C'].mean()
+            self.averages[folder_name]['FluidTemp_Arduino'] = self.sensors_data[folder_name]['FluidTemp_C'].mean()
+            self.averages[folder_name]['FlowRate_Arduino'] = self.sensors_data[folder_name]['FlowRate_L_per_min'].mean()
+        except Exception:
+            pass
+
+        try:
+            self.averages[folder_name]['ChamferTemp_Flir'] = self.flir_chamfered_data[folder_name]['Chamfered_Side_TC'].mean()
+            self.averages[folder_name]['FilletTemp_Flir'] = self.flir_filleted_data[folder_name]['Filleted_Side_TC'].mean()
+        except Exception:
+            pass
 
 # ============================ UI Update Functions ==========================
     def on_tab_change(self):
@@ -576,6 +790,12 @@ class IRISApp(ctk.CTk):
         sensors_box_color = ''
         chamfered_box_color = ''
         filleted_box_color = ''
+        ardunio_fillet_text = ''
+        ardunio_chamfer_text = ''
+        flir_fillet_text = ''
+        flir_chamfer_text = ''
+        arduino_fluid_temp_text = ''
+        arduino_flow_rate_text = ''
 
         # Heatmap file
         if tab_name == 'Combined Plot':
@@ -583,6 +803,12 @@ class IRISApp(ctk.CTk):
             heatmap_box_color = 'grey'
             chamfered_text = 'No Heatmap Selected'
             filleted_text = 'No Heatmap Selected'
+            ardunio_fillet_text = 'N/A'
+            ardunio_chamfer_text = 'N/A'
+            flir_fillet_text = 'N/A'
+            flir_chamfer_text = 'N/A'
+            arduino_fluid_temp_text = 'N/A'
+            arduino_flow_rate_text = 'N/A'
         elif tab_name in self.heat_map_data_filenames and self.heat_map_data_filenames[tab_name] != 'No File Found in Directory':
             heatmap_status = self.heat_map_data_filenames[tab_name]
             heatmap_box_color = 'green'
@@ -590,11 +816,25 @@ class IRISApp(ctk.CTk):
             filleted_coords = self.f_tc_location[tab_name]
             chamfered_text = f"({chamfered_coords[0]}, {chamfered_coords[1]})"
             filleted_text = f"({filleted_coords[0]}, {filleted_coords[1]})"
+            ardunio_fillet_text = f"{self.averages[tab_name]['FilletTemp_Arduino']:.5f}"
+            ardunio_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}"
+            flir_fillet_text = f"{self.averages[tab_name]['FilletTemp_Flir']:.5f}"
+            flir_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Flir']:.5f}"
+            arduino_fluid_temp_text = f"{self.averages[tab_name]['FluidTemp_Arduino']:.5f}"
+            arduino_flow_rate_text = f"{self.averages[tab_name]['FlowRate_Arduino']:.5f}"
+
+
         else:
             heatmap_status = 'Heatmap Not Found'
             heatmap_box_color = 'red'
             chamfered_text = 'No Heatmap Selected'
             filleted_text = 'No Heatmap Selected'
+            ardunio_fillet_text = 'N/A'
+            ardunio_chamfer_text = 'N/A'
+            flir_fillet_text = 'N/A'
+            flir_chamfer_text = 'N/A'
+            arduino_fluid_temp_text = 'N/A'
+            arduino_flow_rate_text = 'N/A'
 
         # Sensors file
         if tab_name == 'Combined Plot':
@@ -676,6 +916,36 @@ class IRISApp(ctk.CTk):
         self.filleted_tc_location.insert(0, filleted_text)
         self.filleted_tc_location.configure(state='disabled')
 
+        self.chamfered_ave_box.configure(state='normal')
+        self.chamfered_ave_box.delete(0, 'end')
+        self.chamfered_ave_box.insert(0, ardunio_chamfer_text)
+        self.chamfered_ave_box.configure(state='disabled')
+
+        self.filleted_ave_box.configure(state='normal')
+        self.filleted_ave_box.delete(0, 'end')
+        self.filleted_ave_box.insert(0, ardunio_fillet_text)
+        self.filleted_ave_box.configure(state='disabled')
+
+        self.chamfered_flir_box.configure(state='normal')
+        self.chamfered_flir_box.delete(0, 'end')
+        self.chamfered_flir_box.insert(0, flir_chamfer_text)
+        self.chamfered_flir_box.configure(state='disabled')
+
+        self.filleted_flir_box.configure(state='normal')
+        self.filleted_flir_box.delete(0, 'end')
+        self.filleted_flir_box.insert(0, flir_fillet_text)
+        self.filleted_flir_box.configure(state='disabled')
+
+        self.fluid_temp_box.configure(state='normal')
+        self.fluid_temp_box.delete(0, 'end')
+        self.fluid_temp_box.insert(0, arduino_fluid_temp_text)
+        self.fluid_temp_box.configure(state='disabled')
+
+        self.flowrate_box.configure(state='normal')
+        self.flowrate_box.delete(0, 'end')
+        self.flowrate_box.insert(0, arduino_flow_rate_text)
+        self.flowrate_box.configure(state='disabled')
+
         self.plot_heat_map()
 
 # ============================ Plot Functions ==========================
@@ -698,13 +968,34 @@ class IRISApp(ctk.CTk):
         ax.set_title(f"Heat Map: {tab_name}")
         ax.set_xlabel('X (pixels)')
         ax.set_ylabel('Y (pixels)')
+        ax.set_aspect('equal')
         ax.invert_yaxis()
 
-        ax.text(0.99, 0.99, 'Chamfered Side', transform=ax.transAxes,
-            fontsize=10, color='white', verticalalignment='top', horizontalalignment='right')
+        if self.is_vertical[tab_name] == True:
+            chamfered_text_x = 0.99
+            chamfered_text_y = 0.99
+            filleted_text_x = 0.99
+            filleted_text_y = 0.01
+            chamfered_vertical = 'top'
+            chamfered_horizontal = 'right'
+            filleted_vertical = 'bottom'
+            filleted_horizontal = 'right'
 
-        ax.text(0.99, 0.01, 'Filleted Side', transform=ax.transAxes,
-            fontsize=10, color='white', verticalalignment='bottom', horizontalalignment='right')
+        elif self.is_vertical[tab_name] == False:
+            chamfered_text_x = 0.99
+            chamfered_text_y = 0.99
+            filleted_text_x = 0.01
+            filleted_text_y = 0.99
+            chamfered_vertical = 'top'
+            chamfered_horizontal = 'right'
+            filleted_vertical = 'top'
+            filleted_horizontal = 'left'        
+
+        ax.text(chamfered_text_x, chamfered_text_y, 'Chamfered Side', transform=ax.transAxes,
+            fontsize=10, color='white', verticalalignment=chamfered_vertical, horizontalalignment=chamfered_horizontal)
+
+        ax.text(filleted_text_x, filleted_text_y, 'Filleted Side', transform=ax.transAxes,
+            fontsize=10, color='white', verticalalignment=filleted_vertical, horizontalalignment=filleted_horizontal)
 
         if self.fin_box_checkbox.get() == 1:
             plot_color = 'black'
@@ -744,11 +1035,18 @@ class IRISApp(ctk.CTk):
             line_thickness = 1
             line_style = '--'  # Dashed line
 
-            ax.plot(
-                [self.midline[tab_name], self.midline[tab_name]],
-                [self.top_edges[tab_name]-5, self.bottom_edges[tab_name]+5],
-                color=plot_color, linewidth=line_thickness, linestyle=line_style
-            )
+            if self.is_vertical[tab_name] == True:
+                ax.plot(
+                    [self.midline[tab_name], self.midline[tab_name]],
+                    [self.top_edges[tab_name]-5, self.bottom_edges[tab_name]+5],
+                    color=plot_color, linewidth=line_thickness, linestyle=line_style
+                )
+            elif self.is_vertical[tab_name] == False:
+                ax.plot(
+                    [self.left_edges[tab_name]-5, self.right_edges[tab_name]+5],
+                    [self.midline[tab_name], self.midline[tab_name]],
+                    color=plot_color, linewidth=line_thickness, linestyle=line_style
+                )
 
         if self.thermocouples_checkbox.get() == 1:
             box_size = 8
@@ -801,9 +1099,10 @@ class IRISApp(ctk.CTk):
 
         data = self.heat_map_data[tab_name]
 
-        mid_x = int((self.right_edges[tab_name] + self.left_edges[tab_name]) / 2)
-
-        temperature_profile = data.iloc[self.top_edges[tab_name]:self.bottom_edges[tab_name], mid_x].values
+        if self.is_vertical[tab_name] == True:
+            temperature_profile = data.iloc[self.top_edges[tab_name]:self.bottom_edges[tab_name], int(self.midline[tab_name])].values[::-1]
+        if self.is_vertical[tab_name] == False:
+            temperature_profile = data.iloc[int(self.midline[tab_name]), self.left_edges[tab_name]:self.right_edges[tab_name]].values
 
         num_points = len(temperature_profile)
         y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
@@ -826,10 +1125,10 @@ class IRISApp(ctk.CTk):
         ax.set_ylabel('Temperature (°C)')
         ax.grid(True)
 
-        ax.text(0.01, 0.99, 'Chamfered Side', transform=ax.transAxes,
+        ax.text(0.01, 0.99, 'Filleted Side', transform=ax.transAxes,
             fontsize=10, color='black', verticalalignment='top', horizontalalignment='left')
 
-        ax.text(0.99, 0.99, 'Filleted Side', transform=ax.transAxes,
+        ax.text(0.99, 0.99, 'Chamfered Side', transform=ax.transAxes,
             fontsize=10, color='black', verticalalignment='top', horizontalalignment='right')
 
         ax.legend(loc='lower right')
@@ -868,8 +1167,10 @@ class IRISApp(ctk.CTk):
             data = self.heat_map_data[experiment]
 
             # Plot midline profile for each experiment
-            mid_x = int((self.right_edges[experiment] + self.left_edges[experiment]) / 2)
-            temperature_profile = data.iloc[self.top_edges[experiment]:self.bottom_edges[experiment], mid_x].values
+            if self.is_vertical[experiment] == True:
+                temperature_profile = data.iloc[self.top_edges[experiment]:self.bottom_edges[experiment], int(self.midline[experiment])].values[::-1]
+            if self.is_vertical[experiment] == False:
+                temperature_profile = data.iloc[int(self.midline[experiment]), self.left_edges[experiment]:self.right_edges[experiment]].values
             num_points = len(temperature_profile)
             y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
 
@@ -885,9 +1186,9 @@ class IRISApp(ctk.CTk):
         if labels:
                 ax.legend(loc='upper right')
 
-        ax.text(0.01, 0.01, 'Chamfered Side', transform=ax.transAxes,
+        ax.text(0.01, 0.01, 'Filleted Side', transform=ax.transAxes,
                 fontsize=10, color='black', verticalalignment='bottom', horizontalalignment='left')
-        ax.text(0.99, 0.01, 'Filleted Side', transform=ax.transAxes,
+        ax.text(0.99, 0.01, 'Chamfered Side', transform=ax.transAxes,
                 fontsize=10, color='black', verticalalignment='bottom', horizontalalignment='right')
 
         master_frame = self.experiments_tabs.tab(combined_tab_name)
@@ -935,11 +1236,8 @@ class IRISApp(ctk.CTk):
             ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['ChamferTemp_C'], color='green', linestyle='-', label='TC Reading, Chamfered Edge (Inst)')
             ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FilletTemp_C'], color='red', linestyle='-', label='TC Reading, Filleted Edge (Inst)')
 
-            chamfer_avg = self.sensors_data[tab_name]['ChamferTemp_C'].rolling(window=60, min_periods=1).mean()
-            fillet_avg = self.sensors_data[tab_name]['FilletTemp_C'].rolling(window=60, min_periods=1).mean()
-
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], chamfer_avg, color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], fillet_avg, color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
+            ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Arduino'], color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
+            ax1.axhline(y=self.averages[tab_name]['FilletTemp_Arduino'], color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
 
             time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
 
@@ -947,11 +1245,8 @@ class IRISApp(ctk.CTk):
             ax1.plot(self.flir_chamfered_data[tab_name]['time'], self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'], color='cyan', linestyle='-', label='FLIR Reading, Chamfered Edge (Inst)')
             ax1.plot(self.flir_filleted_data[tab_name]['time'], self.flir_filleted_data[tab_name]['Filleted_Side_TC'], color='orange', linestyle='-', label='FLIR Reading, Filleted Edge (Inst)')
 
-            flir_chamfer_avg = self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'].rolling(window=3000, min_periods=1).mean()
-            flir_fillet_avg = self.flir_filleted_data[tab_name]['Filleted_Side_TC'].rolling(window=3000, min_periods=1).mean()
-
-            ax1.plot(self.flir_chamfered_data[tab_name]['time'], flir_chamfer_avg, color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
-            ax1.plot(self.flir_filleted_data[tab_name]['time'], flir_fillet_avg, color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
+            ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Flir'], color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
+            ax1.axhline(y=self.averages[tab_name]['FilletTemp_Flir'], color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
 
             time_series_list.append(self.flir_chamfered_data[tab_name]['time'])
             time_series_list.append(self.flir_filleted_data[tab_name]['time'])
@@ -959,9 +1254,7 @@ class IRISApp(ctk.CTk):
         if plot_inlet:
             ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FluidTemp_C'], color='purple', linestyle='-', label='Fluid Inlet Temp (Inst)')
 
-            fluid_temp_avg = self.sensors_data[tab_name]['FluidTemp_C'].rolling(window=60, min_periods=1).mean()
-
-            ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], fluid_temp_avg, color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
+            ax1.axhline(y=self.averages[tab_name]['FluidTemp_Arduino'], color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
 
             time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
 
@@ -970,9 +1263,7 @@ class IRISApp(ctk.CTk):
 
             target_ax.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FlowRate_L_per_min'], color='blue', linestyle='-', label='Flow Rate (Inst)')
 
-            flow_rate_avg = self.sensors_data[tab_name]['FlowRate_L_per_min'].rolling(window=60, min_periods=1).mean()
-
-            target_ax.plot(self.sensors_data[tab_name]['Absolute_Time'], flow_rate_avg, color='blue', linestyle='--', label='Flow Rate (Avg)')
+            target_ax.axhline(y=self.averages[tab_name]['FlowRate_Arduino'], color='blue', linestyle='--', label='Flow Rate (Avg)')
 
             time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
 

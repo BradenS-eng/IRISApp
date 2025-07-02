@@ -15,9 +15,9 @@ REQUIRED_FILES = {
 #-----------------------------------------
 
 TC_F_VLOC = 27.65        # Vertical location of the filleted edge thermocouple from the top edge in mm
-TC_F_HLOC = 16.77        # Horizontal location of the filleted edge thermocouple from the left edge in mm
+TC_F_HLOC = 16.77        # Horizontal location of the filleted edge thermocouple from the right edge in mm
 TC_C_VLOC = 28.47       # Vertical location of the chamfered edge thermocouple from the bottom edge in mm
-TC_C_HLOC = 16.71       # Horizontal location of the chamfered edge thermocouple from the top left edge in mm
+TC_C_HLOC = 16.71       # Horizontal location of the chamfered edge thermocouple from the right edge in mm
 FIN_WIDTH = 34.02               # Width of the fin in mm
 FIN_HEIGHT = 90.28              # Height of the fin in mm
 
@@ -25,5 +25,5 @@ FIN_HEIGHT = 90.28              # Height of the fin in mm
 # Calibration Properties
 #-----------------------------------------
 
-EDGE_SENSITIVITY = 80  # Pixel window near top/bottom edges
+EDGE_SENSITIVITY = 125  # Pixel window near top/bottom edges
 FIGURE_SIZE = (8, 6)
