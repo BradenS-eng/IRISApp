@@ -243,7 +243,7 @@ class IRISApp(ctk.CTk):
         self.filleted_tc_location.insert(0, 'Select Heatmap')
         self.filleted_tc_location.configure(state='disabled')
 
-        self.averages_frame = ctk.CTkFrame(parent)
+        self.averages_frame = ctk.CTkScrollableFrame(parent)
         self.averages_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
 
         self.averages_label = ctk.CTkLabel(self.averages_frame, text='Averages', width=225, font=(None, 18))
