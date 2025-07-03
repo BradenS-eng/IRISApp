@@ -714,24 +714,26 @@ class IRISApp(ctk.CTk):
             self.bottom_edges[folder_name] = statistics.mode(bottom_edge_locations)
 
             for y in range(self.top_edges[folder_name], self.bottom_edges[folder_name]):
-                row = self.heat_map_data[folder_name].iloc[y, 5:-5].values
+                offset = 5
+                row = self.heat_map_data[folder_name].iloc[y].values
                 smoothed_row = gaussian_filter1d(row, sigma=1)
-                left_window = smoothed_row[:config.EDGE_SENSITIVITY]
-                right_window = smoothed_row[-config.EDGE_SENSITIVITY:]
+
+                left_window = smoothed_row[offset : offset + config.EDGE_SENSITIVITY]
+                right_window = smoothed_row[-(offset + config.EDGE_SENSITIVITY) : -offset]
 
                 left_gradients = np.gradient(left_window)
-                left_index = np.argmax(left_gradients)
-
                 right_gradients = np.gradient(right_window)
-                right_index = len(row) - config.EDGE_SENSITIVITY + np.argmin(right_gradients)
 
-                right_edge_locations.append(right_index)
+                left_index = offset + np.argmax(left_gradients)
+                right_index = len(row) - offset - config.EDGE_SENSITIVITY + np.argmin(right_gradients)
+
                 left_edge_locations.append(left_index)
+                right_edge_locations.append(right_index)
 
-            self.right_edges[folder_name] = statistics.mode(right_edge_locations)
             self.left_edges[folder_name] = statistics.mode(left_edge_locations)
-
+            self.right_edges[folder_name] = statistics.mode(right_edge_locations)
             self.midline[folder_name] = (self.top_edges[folder_name] + self.bottom_edges[folder_name]) / 2
+
 
     def find_thermocouples(self, folder_name):
         if folder_name not in self.heat_map_data or isinstance(self.heat_map_data[folder_name], str):
