@@ -50,7 +50,7 @@ class IRISApp(ctk.CTk):
 
         self.current_plot_canvas = {}
 
-        self.create_workspace()
+        self.build_app()
 
         self.protocol('WM_DELETE_WINDOW', self.on_closing)
 
@@ -59,36 +59,45 @@ class IRISApp(ctk.CTk):
             self.quit()
         except:
             pass
+# ========================== Build App ==========================
+    def build_app(self):
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(fill='both', expand=True, padx=10)
+
+        self.tabview.add('Data Collection')
+
+        self.plot_view_frame = self.tabview.add('Plotting')
+        self.create_workspace(self.plot_view_frame)
 
 # ========================== Building the Workspace ==========================
-    def create_workspace(self):
+    def create_workspace(self, parent):
 
     # Top Frame for Directory Selector
-        directory_frame = ctk.CTkFrame(self)
+        directory_frame = ctk.CTkFrame(parent)
         directory_frame.pack(side='top', fill='x', padx=10, pady=5)
         self.build_directory_selector(directory_frame)
         
     # Left Frame for Available Experiments and Workspace
-        self.left_frame = ctk.CTkFrame(self)
+        self.left_frame = ctk.CTkFrame(parent)
         self.left_frame.pack(side='left', fill='y', padx=5, pady=5)
         self.build_available_experiments_box(self.left_frame)
         self.build_selected_experiments_box(self.left_frame)
         self.build_status_box(self.left_frame)
 
     # Center Frame for Visualization and Plotting
-        self.center_frame = ctk.CTkFrame(self)
+        self.center_frame = ctk.CTkFrame(parent)
         self.center_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
         self.build_center_box(self.center_frame)
 
     # Plot Box
-        self.plot_box_frame = ctk.CTkFrame(self)
+        self.plot_box_frame = ctk.CTkFrame(parent)
         self.plot_box_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
         self.plot_box_label = ctk.CTkLabel(self.plot_box_frame, text='Plot Selector', width=225, font=(None, 20))
         self.plot_box_label.pack(anchor='w')
         self.build_plot_box(self.plot_box_frame)
 
     # System Dashboard
-        self.system_dashboard_frame = ctk.CTkFrame(self)
+        self.system_dashboard_frame = ctk.CTkFrame(parent)
         self.system_dashboard_frame.pack(side='top', fill='x', anchor='n', padx=5, pady=5)
         self.system_dashboard_label = ctk.CTkLabel(self.system_dashboard_frame, text='System Dashboard', width=225, font=(None, 20))
         self.system_dashboard_label.pack(anchor='n')
