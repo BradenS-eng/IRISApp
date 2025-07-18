@@ -1,12 +1,18 @@
 # ========================== Imports & Config ==========================
 import os
+import time
 import math
+import serial
+import shutil
 import config
+import threading
 import statistics
 import numpy as np
 import pandas as pd
 import tkinter as tk
+from pathlib import Path
 import customtkinter as ctk
+from datetime import datetime
 from tkinter import filedialog
 from collections import Counter
 import matplotlib.pyplot as plt
@@ -56,27 +62,132 @@ class IRISApp(ctk.CTk):
 
     def on_closing(self):
         try:
-            self.quit()
+            self.serial_running = False
+            if hasattr(self, 'ser') and self.ser.is_open:
+                self.ser.close()
         except:
             pass
+        finally:
+            self.quit()
+            self.destroy()
 # ========================== Build App ==========================
     def build_app(self):
+        self.directory_frame = ctk.CTkFrame(self)
+        self.directory_frame.pack(side='top', fill='x', padx=5, pady=5)
+        self.build_directory_selector(self.directory_frame)
+
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill='both', expand=True, padx=10)
-
-        self.tabview.add('Data Collection')
-
+ 
         self.plot_view_frame = self.tabview.add('Plotting')
-        self.create_workspace(self.plot_view_frame)
+        self.create_plot_space(self.plot_view_frame)
 
-# ========================== Building the Workspace ==========================
-    def create_workspace(self, parent):
+        self.data_collection_frame = self.tabview.add('Data Collection')
+        self.create_data_collection_space(self.data_collection_frame)
 
-    # Top Frame for Directory Selector
-        directory_frame = ctk.CTkFrame(parent)
-        directory_frame.pack(side='top', fill='x', padx=10, pady=5)
-        self.build_directory_selector(directory_frame)
+
+    def build_directory_selector(self, parent):
+        self.dir_entry = ctk.CTkEntry(parent, placeholder_text='Select a directory with experiment folders')
+        self.dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
+
+        browse_button = ctk.CTkButton(parent, text='Browse', command=self.browse_directory)
+        browse_button.pack(side='left', padx=5)
+
+        reset_button = ctk.CTkButton(parent, text='Reset', command=self.reset_plot_space)
+        reset_button.pack(side='left')
+
+# ========================== Building the Data Collection Space ==========================
+    def create_data_collection_space(self, parent):
         
+        self.monitor_frame = ctk.CTkFrame(parent)
+        self.monitor_frame.pack(side='left', fill='both', expand=True, padx=(0,5), pady=5)
+        self.build_monitoring_space(self.monitor_frame)
+
+        self.create_experiment_frame = ctk.CTkFrame(parent, width=250)
+        self.create_experiment_frame.pack(side='right', fill='y', pady=5)
+        self.build_experiment_creator(self.create_experiment_frame)
+
+        self.output_lines_frame = ctk.CTkFrame(self, height=100)
+        self.output_lines_frame.pack(side='bottom', fill='x', pady=5, padx=5)
+        self.build_output_lines(self.output_lines_frame)
+
+# ============================ Building Monitor Space Components ==========================
+    def build_monitoring_space(self, parent):
+        # Create a frame inside the parent to hold the monitor
+        self.monitor_frame = ctk.CTkFrame(parent)
+        self.monitor_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # Create a scrolling textbox to display serial data
+        self.monitor_textbox = ctk.CTkTextbox(self.monitor_frame, wrap='none')
+        self.monitor_textbox.pack(fill='both', expand=True, padx=5, pady=5)
+
+    def build_experiment_creator(self, parent):
+
+        self.step1_frame = ctk.CTkFrame(parent)
+        self.step1_frame.pack(side='top', fill='x', pady=10)
+
+        self.step1_label = ctk.CTkLabel(self.step1_frame, text='Step 1')
+        self.step1_label.pack(anchor='w', padx=5)
+
+        self.experiment_folder_label = ctk.CTkEntry(self.step1_frame, height=25, justify='right')
+        self.experiment_folder_label.pack(fill='x', pady=5, padx=5)
+
+        self.start_serial_button = ctk.CTkButton(self.step1_frame, text='Select Experiment', command=self.create_experiment_folder)
+        self.start_serial_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+        self.step2_frame = ctk.CTkFrame(parent)
+        self.step2_frame.pack(side='top', fill='x', pady=5)
+
+        self.step2_label = ctk.CTkLabel(self.step2_frame, text='Step 2')
+        self.step2_label.pack(anchor='w', padx=5)
+
+        self.start_serial_button = ctk.CTkButton(self.step2_frame, text='Start Serial Monitor', command=self.start_serial_monitor)
+        self.start_serial_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+        self.step3_frame = ctk.CTkFrame(parent)
+        self.step3_frame.pack(side='top', fill='x', pady=5)
+
+        self.step3_label = ctk.CTkLabel(self.step3_frame, text='Step 3')
+        self.step3_label.pack(anchor='w', padx=5)
+
+        self.start_experiment_button = ctk.CTkButton(self.step3_frame, text='Begin Experiment', command=self.send_serial_start)
+        self.start_experiment_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+        self.step4_frame = ctk.CTkFrame(parent)
+        self.step4_frame.pack(side='top', fill='x', pady=5)
+
+        self.step4_label = ctk.CTkLabel(self.step4_frame, text='Step 4')
+        self.step4_label.pack(anchor='w', padx=5)
+
+        self.get_seq_button = ctk.CTkButton(self.step4_frame, text='Find .seq File', command=self.move_seq_file)
+        self.get_seq_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+        self.step5_frame = ctk.CTkFrame(parent)
+        self.step5_frame.pack(side='top', fill='x', pady=5)
+
+        self.step5_label = ctk.CTkLabel(self.step5_frame, text='Step 5')
+        self.step5_label.pack(anchor='w', padx=5)
+
+        self.close_serial_button = ctk.CTkButton(self.step5_frame, text='Stop Serial Monitor', command=self.stop_serial_monitor)
+        self.close_serial_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+        self.abort_frame = ctk.CTkFrame(parent)
+        self.abort_frame.pack(side='bottom', fill='x', pady=5)
+
+        self.abort_experiment_button = ctk.CTkButton(self.abort_frame, text='Abort Experiment', command=self.send_serial_stop)
+        self.abort_experiment_button.pack(fill='x', anchor='n', padx=5, pady=5)
+
+    def build_output_lines(self, parent):
+        output_label = ctk.CTkLabel(parent, text='Output')
+        output_label.pack(anchor='w', padx=5, pady=(5,0))
+
+        self.output_textbox = ctk.CTkTextbox(parent, height=120)
+        self.output_textbox.pack(fill='both', expand=True, padx=5, pady=5)
+
+
+# ========================== Building the Plot Space ==========================
+    def create_plot_space(self, parent):
+       
     # Left Frame for Available Experiments and Workspace
         self.left_frame = ctk.CTkFrame(parent)
         self.left_frame.pack(side='left', fill='y', padx=5, pady=5)
@@ -102,17 +213,8 @@ class IRISApp(ctk.CTk):
         self.system_dashboard_label = ctk.CTkLabel(self.system_dashboard_frame, text='System Dashboard', width=225, font=(None, 20))
         self.system_dashboard_label.pack(anchor='n')
         self.build_information_frame(self.system_dashboard_frame)
-
-# ============================ Building Workspace Components ==========================
-    def build_directory_selector(self, parent):
-        self.dir_entry = ctk.CTkEntry(parent, placeholder_text='Select a directory with experiment folders')
-        self.dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
-
-        browse_button = ctk.CTkButton(parent, text='Browse', command=self.browse_directory)
-        browse_button.pack(side='left', padx=5)
-
-        reset_button = ctk.CTkButton(parent, text='Reset', command=self.reset_workspace)
-        reset_button.pack(side='left')
+    
+# ============================ Building Plot Space Components ==========================
 
     def build_available_experiments_box(self, parent):
         self.available_experiments = ctk.CTkLabel(parent, text='Available Experiments', width=225, font=(None, 20))
@@ -340,7 +442,7 @@ class IRISApp(ctk.CTk):
                 return
             
         for widget in self.available_experiments_listbox.winfo_children():
-            if isinstance(widget, ctk.CTkButton) and widget.cget("text") == folder_name:
+            if isinstance(widget, ctk.CTkButton) and widget.cget('text') == folder_name:
                 widget.destroy()
                 break
         
@@ -372,11 +474,18 @@ class IRISApp(ctk.CTk):
         remove_btn = ctk.CTkButton(name_button_frame, text='X', width=30, command=lambda f=name_button_frame: self.remove_selected_experiments_item(f))
         remove_btn.pack(side='right')
 
-    def reset_workspace(self):
+    def reset_plot_space(self):
         for widget in self.available_experiments_listbox.winfo_children():
             widget.destroy()
         for widget in self.selected_experiments_listbox.winfo_children():
             widget.destroy()
+
+        self.experiment_folder_label.delete(0, 'end')
+        self.output_textbox.delete('1.0', 'end')
+        self.monitor_textbox.delete('1.0', 'end')
+        if hasattr(self, 'ser') and self.ser.is_open:
+            self.serial_running = False
+            self.ser.close()
 
         tabs_to_remove = [tab for tab in self.current_tabs if tab != 'Combined Plot']
         for tab in tabs_to_remove:
@@ -450,7 +559,7 @@ class IRISApp(ctk.CTk):
         available_folders = []
         for widget in self.available_experiments_listbox.winfo_children():
             if isinstance(widget, ctk.CTkButton):
-                available_folders.append(widget.cget("text"))
+                available_folders.append(widget.cget('text'))
                 widget.destroy()  # Clear all buttons to rebuild sorted list
 
         available_folders.append(folder_name)
@@ -825,19 +934,19 @@ class IRISApp(ctk.CTk):
             heatmap_box_color = 'green'
             chamfered_coords = self.c_tc_location[tab_name]
             filleted_coords = self.f_tc_location[tab_name]
-            chamfered_text = f"({chamfered_coords[0]}, {chamfered_coords[1]})"
-            filleted_text = f"({filleted_coords[0]}, {filleted_coords[1]})"
+            chamfered_text = f'({chamfered_coords[0]}, {chamfered_coords[1]})'
+            filleted_text = f'({filleted_coords[0]}, {filleted_coords[1]})'
             try:
-                ardunio_fillet_text = f"{self.averages[tab_name]['FilletTemp_Arduino']:.5f}"
-                ardunio_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}"
-                arduino_fluid_temp_text = f"{self.averages[tab_name]['FluidTemp_Arduino']:.5f}"
-                arduino_flow_rate_text = f"{self.averages[tab_name]['FlowRate_Arduino']:.5f}"
+                ardunio_fillet_text = f'{self.averages[tab_name]['FilletTemp_Arduino']:.5f}'
+                ardunio_chamfer_text = f'{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}'
+                arduino_fluid_temp_text = f'{self.averages[tab_name]['FluidTemp_Arduino']:.5f}'
+                arduino_flow_rate_text = f'{self.averages[tab_name]['FlowRate_Arduino']:.5f}'
             except Exception:
                 pass
 
             try:
-                flir_fillet_text = f"{self.averages[tab_name]['FilletTemp_Flir']:.5f}"
-                flir_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Flir']:.5f}"
+                flir_fillet_text = f'{self.averages[tab_name]['FilletTemp_Flir']:.5f}'
+                flir_chamfer_text = f'{self.averages[tab_name]['ChamferTemp_Flir']:.5f}'
             except Exception:
                 pass
 
@@ -982,7 +1091,7 @@ class IRISApp(ctk.CTk):
         cax = ax.imshow(data, cmap='jet', origin='lower', aspect='auto')
         fig.colorbar(cax, ax=ax, label='Temperature (°C)')
 
-        ax.set_title(f"Heat Map: {tab_name}")
+        ax.set_title(f'Heat Map: {tab_name}')
         ax.set_xlabel('X (pixels)')
         ax.set_ylabel('Y (pixels)')
         ax.set_aspect('equal')
@@ -1133,7 +1242,7 @@ class IRISApp(ctk.CTk):
         ):
             ax.plot(self.simulation_data[tab_name]['Location'], self.simulation_data[tab_name]['Temperature'], color='blue', linewidth=2, label='Simulated Temperature Profile')
 
-        ax.set_title(f"Linear Temperature Profile at Midline: {tab_name}")
+        ax.set_title(f'Linear Temperature Profile at Midline: {tab_name}')
         ax.set_xlabel('Fin Height (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         y_min = temperature_profile.min() - 5
@@ -1238,7 +1347,7 @@ class IRISApp(ctk.CTk):
 
         # Exit if nothing is selected
         if not any([plot_tc, plot_flir, plot_inlet, plot_flow]):
-            print("Nothing selected to plot.")
+            print('Nothing selected to plot.')
             return
 
         fig, ax1 = plt.subplots(figsize=config.FIGURE_SIZE)
@@ -1317,7 +1426,7 @@ class IRISApp(ctk.CTk):
             ax2.tick_params(axis='y', colors='blue')
             ax2.spines['right'].set_color('blue')
 
-        ax1.set_title(f"Temperature and Flow Rate vs Time for Experiment: {tab_name}")
+        ax1.set_title(f'Temperature and Flow Rate vs Time for Experiment: {tab_name}')
 
         # ========== Legend and Explanatory Box ==========
         custom_lines = [
@@ -1351,3 +1460,160 @@ class IRISApp(ctk.CTk):
         toolbar.pack()
 
         self.current_plot_canvas[tab_name] = {'canvas': canvas, 'toolbar': toolbar}
+
+
+# ============================ Data Collection Functions ==========================
+    def create_experiment_folder(self):
+        folder_name = self.experiment_folder_label.get().strip()
+        selected_dir = self.dir_entry.get().strip()
+        if not selected_dir:
+            self.output_textbox.insert('end', '[Error] No directory selected.\n')
+            self.output_textbox.see('end')
+            return
+        else:
+            full_path = os.path.join(selected_dir, folder_name)
+            
+            if os.path.exists(full_path) and len(folder_name) != 0:
+                self.active_experiment = folder_name
+                self.output_textbox.insert('end', f'[Status] Folder already exists at: {full_path}\n')
+                self.output_textbox.insert('end', f'[Status] Active Experiement: {self.active_experiment}\n')
+                self.output_textbox.see('end')
+
+            elif not os.path.exists(full_path) and len(folder_name) != 0:
+                try:
+                    self.active_experiment = folder_name
+                    os.makedirs(full_path)
+
+                    open(os.path.join(full_path, "Chamfered_Side_TC_Flir.txt"), 'w').close()
+                    open(os.path.join(full_path, "Filleted_Side_TC_Flir.txt"), 'w').close()
+                    open(os.path.join(full_path, "Heat_Map_Final_Frame.csv"), 'w').close()
+
+                    self.output_textbox.insert('end', f'[Status] No folder exists. Creating: {full_path}\n')
+                    self.output_textbox.insert('end', f'[Status] Active Experiment: {self.active_experiment}\n')
+                    self.output_textbox.see('end')
+                except Exception as e:
+                    self.output_textbox.insert('end', f'[Error] Failed to create folder: {e}\n')
+                    self.output_textbox.see('end')  
+            
+            else:
+                self.output_textbox.insert('end', '[Error] Folder name cannot be empty.\n')
+                self.output_textbox.see('end')
+                return
+
+    def start_serial_monitor(self):
+        sensors_file = Path(self.dir_entry.get().strip()) / self.active_experiment / 'sensors.txt'
+
+        def open_serial_port():
+            try:
+                self.ser = serial.Serial(config.SERIAL_PORT, config.BAUD_RATE, timeout=1)
+                time.sleep(2)  # Give device time to initialize
+                self.output_textbox.insert('end', f'[Connected to {config.SERIAL_PORT}]\n')
+                self.output_textbox.see('end')
+            except Exception as e:
+                self.output_textbox.insert('end', f'[Error] Could not open serial port: {e}\n')
+                self.output_textbox.see('end')
+                return False
+            self.serial_running = True
+            return True
+
+        def read_serial():
+            while self.serial_running:
+                try:
+                    if self.ser.in_waiting > 0:
+                        line = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                        timestamp = datetime.now().strftime('%H:%M:%S:%f')[:-3]  # HH:MM:SS:MS
+                        output_line = f'{timestamp} -> {line}\n'
+
+                        self.monitor_textbox.insert('end', output_line)
+                        self.monitor_textbox.see('end')
+
+                        with open(sensors_file, 'a') as f:
+                            f.write(output_line)
+
+                    time.sleep(0.1)
+                except Exception as e:
+                    self.monitor_textbox.insert('end', f'[Error] Serial read failed: {e}\n')
+                    self.monitor_textbox.see('end')
+                    break
+
+        try:
+            if os.path.exists(sensors_file) and os.path.getsize(sensors_file) > 0:
+                self.output_textbox.insert(
+                    'end',
+                    f'[Error] {sensors_file} contains data. Aborting to prevent overwriting.\nSerial monitor not opened.\n'
+                )
+                self.output_textbox.see('end')
+                return
+            elif os.path.exists(sensors_file) and os.path.getsize(sensors_file) == 0:
+                self.output_textbox.insert(
+                    'end',
+                    f'[Status] {sensors_file} exists but no data found. Saving to sensors.txt.\n'
+                )
+                self.output_textbox.see('end')
+            else:
+                self.output_textbox.insert(
+                    'end',
+                    f'[Status] File not found. Creating {sensors_file}\n'
+                )
+                self.output_textbox.see('end')
+        except Exception as e:
+            self.output_textbox.insert('end', f'[Error] Could not access sensors.txt: {e}\n')
+            self.output_textbox.see('end')
+            return
+
+        if open_serial_port():
+            self.serial_thread = threading.Thread(target=read_serial, daemon=True)
+            self.serial_thread.start()
+
+    def send_serial_start(self):
+        if hasattr(self, 'ser') and self.ser.is_open:
+            try:
+                self.ser.write(b'start\n')
+            except Exception as e:
+                self.output_textbox.insert('end', f'[Error] Failed to send start command: {e}\n')
+                self.output_textbox.see('end')
+
+    def send_serial_stop(self):
+        if hasattr(self, 'ser') and self.ser.is_open:
+            try:
+                self.ser.write(b'stop\n')
+            except Exception as e:
+                self.output_textbox.insert('end', f'[Error] Failed to send start command: {e}\n')
+                self.output_textbox.see('end')
+
+    def move_seq_file(self):
+        file_path = filedialog.askopenfilename(title="Select SEQ File", filetypes=[("SEQ files", "*.seq")])
+        if not file_path:
+            self.output_textbox.insert("end", "[Status] No file selected.\n")
+            self.output_textbox.see("end")
+            return
+
+        if not hasattr(self, 'active_experiment') or not self.active_experiment:
+            self.output_textbox.insert("end", "[Error] active_experiment is not set.\n")
+            self.output_textbox.see("end")
+            return
+
+        new_file_path = Path(self.dir_entry.get().strip()) / self.active_experiment / f"{self.active_experiment}.seq"
+
+        if os.path.exists(new_file_path):
+            self.output_textbox.insert("end", f"[Error] {new_file_path} already exists. Aborting to avoid overwrite.\n")
+            self.output_textbox.see("end")
+            return
+
+        try:
+            shutil.move(file_path, new_file_path)
+            self.output_textbox.insert("end", f"[Status] File moved and renamed to: {new_file_path}\n")
+        except Exception as e:
+            self.output_textbox.insert("end", f"[Error] Failed to move file: {e}\n")
+        self.output_textbox.see("end")
+
+    def stop_serial_monitor(self):
+        if hasattr(self, 'ser') and self.ser.is_open:
+            self.serial_running = False
+            self.ser.close()
+            self.output_textbox.insert('end', '[Status] Serial monitor stopped. Output Cleared.\n')
+            self.output_textbox.see('end')
+            self.monitor_textbox.delete("1.0", "end")
+        else:
+            self.output_textbox.insert('end', '[Error] Serial port is not open.\n')
+            self.output_textbox.see('end')
