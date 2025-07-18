@@ -27,3 +27,10 @@ FIN_HEIGHT = 90.28              # Height of the fin in mm
 
 EDGE_SENSITIVITY = 125  # Pixel window near top/bottom edges
 FIGURE_SIZE = (8, 6)
+
+#-----------------------------------------
+# Arduino Connection Properties
+#-----------------------------------------
+
+SERIAL_PORT = 'COM3'  # Default port for Arduino connection
+BAUD_RATE = 9600  # Baud rate for serial communication
