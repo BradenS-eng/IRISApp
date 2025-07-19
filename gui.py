@@ -65,6 +65,8 @@ class IRISApp(ctk.CTk):
             self.serial_running = False
             if hasattr(self, 'ser') and self.ser.is_open:
                 self.ser.close()
+            if hasattr(self, 'serial_file') and not self.serial_file.closed:
+                self.serial_file.close()
         except:
             pass
         finally:
@@ -98,17 +100,19 @@ class IRISApp(ctk.CTk):
 
 # ========================== Building the Data Collection Space ==========================
     def create_data_collection_space(self, parent):
-        
-        self.monitor_frame = ctk.CTkFrame(parent)
-        self.monitor_frame.pack(side='left', fill='both', expand=True, padx=(0,5), pady=5)
+        self.top_container = ctk.CTkFrame(parent)
+        self.top_container.pack(side='top', fill='both', expand=True)
+
+        self.monitor_frame = ctk.CTkFrame(self.top_container)
+        self.monitor_frame.pack(side='left', fill='both', expand=True)
         self.build_monitoring_space(self.monitor_frame)
 
-        self.create_experiment_frame = ctk.CTkFrame(parent, width=250)
-        self.create_experiment_frame.pack(side='right', fill='y', pady=5)
+        self.create_experiment_frame = ctk.CTkFrame(self.top_container, width=250)
+        self.create_experiment_frame.pack(side='right', fill='y')
         self.build_experiment_creator(self.create_experiment_frame)
 
-        self.output_lines_frame = ctk.CTkFrame(self, height=100)
-        self.output_lines_frame.pack(side='bottom', fill='x', pady=5, padx=5)
+        self.output_lines_frame = ctk.CTkFrame(parent, height=100)
+        self.output_lines_frame.pack(side='bottom', fill='x')
         self.build_output_lines(self.output_lines_frame)
 
 # ============================ Building Monitor Space Components ==========================
@@ -486,6 +490,8 @@ class IRISApp(ctk.CTk):
         if hasattr(self, 'ser') and self.ser.is_open:
             self.serial_running = False
             self.ser.close()
+        if hasattr(self, 'serial_file') and not self.serial_file.closed:
+            self.serial_file.close()
 
         tabs_to_remove = [tab for tab in self.current_tabs if tab != 'Combined Plot']
         for tab in tabs_to_remove:
@@ -1519,6 +1525,7 @@ class IRISApp(ctk.CTk):
         def read_serial():
             while self.serial_running:
                 try:
+                    self.serial_file = open(sensors_file, 'a')
                     if self.ser.in_waiting > 0:
                         line = self.ser.readline().decode('utf-8', errors='ignore').strip()
                         timestamp = datetime.now().strftime('%H:%M:%S:%f')[:-3]  # HH:MM:SS:MS
@@ -1527,14 +1534,17 @@ class IRISApp(ctk.CTk):
                         self.monitor_textbox.insert('end', output_line)
                         self.monitor_textbox.see('end')
 
-                        with open(sensors_file, 'a') as f:
-                            f.write(output_line)
+                        self.serial_file.write(output_line)
+                        self.serial_file.flush()
 
                     time.sleep(0.1)
                 except Exception as e:
                     self.monitor_textbox.insert('end', f'[Error] Serial read failed: {e}\n')
                     self.monitor_textbox.see('end')
                     break
+                finally:
+                    if hasattr(self, 'serial_file') and not self.serial_file.closed:
+                        self.serial_file.close()
 
         try:
             if os.path.exists(sensors_file) and os.path.getsize(sensors_file) > 0:
