@@ -163,8 +163,8 @@ class IRISApp(ctk.CTk):
         self.step4_label = ctk.CTkLabel(self.step4_frame, text='Step 4')
         self.step4_label.pack(anchor='w', padx=5)
 
-        self.get_seq_button = ctk.CTkButton(self.step4_frame, text='Find .seq File', command=self.move_seq_file)
-        self.get_seq_button.pack(fill='x', anchor='n', padx=5, pady=5)
+        self.close_serial_button = ctk.CTkButton(self.step4_frame, text='Stop Serial Monitor', command=self.stop_serial_monitor)
+        self.close_serial_button.pack(fill='x', anchor='n', padx=5, pady=5)
 
         self.step5_frame = ctk.CTkFrame(parent)
         self.step5_frame.pack(side='top', fill='x', pady=5)
@@ -172,8 +172,8 @@ class IRISApp(ctk.CTk):
         self.step5_label = ctk.CTkLabel(self.step5_frame, text='Step 5')
         self.step5_label.pack(anchor='w', padx=5)
 
-        self.close_serial_button = ctk.CTkButton(self.step5_frame, text='Stop Serial Monitor', command=self.stop_serial_monitor)
-        self.close_serial_button.pack(fill='x', anchor='n', padx=5, pady=5)
+        self.get_seq_button = ctk.CTkButton(self.step5_frame, text='Find .seq File', command=self.move_seq_file)
+        self.get_seq_button.pack(fill='x', anchor='n', padx=5, pady=5)
 
         self.abort_frame = ctk.CTkFrame(parent)
         self.abort_frame.pack(side='bottom', fill='x', pady=5)
@@ -1523,28 +1523,35 @@ class IRISApp(ctk.CTk):
             return True
 
         def read_serial():
+            self.serial_data_buffer = []
+
             while self.serial_running:
                 try:
-                    self.serial_file = open(sensors_file, 'a')
                     if self.ser.in_waiting > 0:
                         line = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                        timestamp = datetime.now().strftime('%H:%M:%S:%f')[:-3]  # HH:MM:SS:MS
+                        timestamp = datetime.now().strftime('%H:%M:%S:%f')[:-3]
                         output_line = f'{timestamp} -> {line}\n'
 
                         self.monitor_textbox.insert('end', output_line)
                         self.monitor_textbox.see('end')
 
-                        self.serial_file.write(output_line)
-                        self.serial_file.flush()
+                        self.serial_data_buffer.append(output_line)
 
                     time.sleep(0.1)
+
                 except Exception as e:
                     self.monitor_textbox.insert('end', f'[Error] Serial read failed: {e}\n')
                     self.monitor_textbox.see('end')
                     break
-                finally:
-                    if hasattr(self, 'serial_file') and not self.serial_file.closed:
-                        self.serial_file.close()
+            
+            try:
+                with open(sensors_file, 'a') as f:
+                    f.writelines(self.serial_data_buffer)
+                    self.output_textbox.insert('end', f'[Success] {sensors_file} created.\n')
+                    self.output_textbox.see('end')
+            except Exception as e:
+                self.monitor_textbox.insert('end', f'[Error] Failed to write buffer to file: {e}\n')
+                self.monitor_textbox.see('end')
 
         try:
             if os.path.exists(sensors_file) and os.path.getsize(sensors_file) > 0:
@@ -1563,7 +1570,7 @@ class IRISApp(ctk.CTk):
             else:
                 self.output_textbox.insert(
                     'end',
-                    f'[Status] File not found. Creating {sensors_file}\n'
+                    f'[Status] File not found. Proceeding with test.\n'
                 )
                 self.output_textbox.see('end')
         except Exception as e:
