@@ -72,6 +72,8 @@ class IRISApp(ctk.CTk):
         finally:
             self.quit()
             self.destroy()
+
+            
 # ========================== Build App ==========================
     def build_app(self):
         self.directory_frame = ctk.CTkFrame(self)
@@ -666,13 +668,21 @@ class IRISApp(ctk.CTk):
     def import_simulation_data(self, folder_path):
         simulation_file_names = config.REQUIRED_FILES['Simulation Data']
         experiment = os.path.basename(folder_path)
-        for file in simulation_file_names:
-            file_path = os.path.join(folder_path, file)
+        simulation_file = None
+        all_files = os.listdir(folder_path)
+
+        for file in all_files:
+            if any(file.startswith(name) for name in simulation_file_names):
+                simulation_file = file
+                break
+
+        if simulation_file:
+            file_path = os.path.join(folder_path, simulation_file)
             if os.path.isfile(file_path):
                 try:
                     with open(file_path, 'r') as temp_file:
-                        df = temp_file.read()          
-                                
+                        df = temp_file.read()
+
                     lines = df.strip().split('\n')
                     lines = lines[1:-1]
                     locations = []
@@ -686,22 +696,20 @@ class IRISApp(ctk.CTk):
                             locations.append(loc)
                             temperatures.append(temp)
 
-                    df = pd.DataFrame({'Location': locations,
-                                        'Temperature': temperatures})
-                    
+                    df = pd.DataFrame({'Location': locations, 'Temperature': temperatures})
 
                     min_pos = df['Location'].min()
                     max_pos = df['Location'].max()
                     df['Location'] = ((max_pos - df['Location']) / (max_pos - min_pos)) * config.FIN_HEIGHT
-                    
-                    df['Temperature'] = df['Temperature']-273.15
+
+                    df['Temperature'] = df['Temperature'] - 273.15
                     df = df.iloc[::-1].reset_index(drop=True)
-                    
+
                     self.simulation_data[experiment] = df
-                    self.simulation_data_filesnames[experiment] = file
-                    break
-                except Exception:
-                    continue
+                    self.simulation_data_filesnames[experiment] = simulation_file
+                    return
+                except Exception as e:
+                    print(f"Error reading simulation file: {e}")
         else:
             self.simulation_data[experiment] = 'Simulation Data File Not Found'
             self.simulation_data_filesnames[experiment] = 'No File Found in Directory'
