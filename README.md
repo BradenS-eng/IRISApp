@@ -1,7 +1,7 @@
 1. Clone the repo
 
 2. Open the repo in VS Code
-3. Set up an environment
+3. Set up an environment <\br>
 python3 -m venv venv
 venv\Scripts\activate.bat
 
