@@ -1307,7 +1307,7 @@ class IRISApp(ctk.CTk):
 
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
+        canvas.get_tk_widget().pack(anchor='center')
 
         toolbar = NavigationToolbar2Tk(canvas, master_frame)
         toolbar.update()
@@ -1391,7 +1391,7 @@ class IRISApp(ctk.CTk):
 
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
+        canvas.get_tk_widget().pack(anchor='center')
 
         toolbar = NavigationToolbar2Tk(canvas, master_frame)
         toolbar.update()
@@ -1534,7 +1534,7 @@ class IRISApp(ctk.CTk):
         master_frame = self.experiments_tabs.tab(tab_name)
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
+        canvas.get_tk_widget().pack(anchor='center')
 
         toolbar = NavigationToolbar2Tk(canvas, master_frame)
         toolbar.update()
