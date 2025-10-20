@@ -11,12 +11,16 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 from pathlib import Path
+import matplotlib.cm as cm
+from astropy.io import fits
 import customtkinter as ctk
 from datetime import datetime
 from tkinter import filedialog
 from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
+import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from scipy.ndimage import gaussian_filter1d
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -53,6 +57,9 @@ class IRISApp(ctk.CTk):
         self.f_tc_location = {}
         self.is_vertical = {}
         self.averages = {}
+        self.fits_inlet_temps = {}
+        self.fits_flow_rates = {}
+        self.fits_has_graphite = {}
 
         self.current_plot_canvas = {}
 
@@ -521,6 +528,9 @@ class IRISApp(ctk.CTk):
         self.f_tc_location.clear()
         self.is_vertical.clear()
         self.averages.clear()
+        self.fits_inlet_temps.clear()
+        self.fits_flow_rates.clear()
+        self.fits_has_graphite.clear()
 
         self.dir_entry.delete(0, 'end')
 
@@ -561,6 +571,9 @@ class IRISApp(ctk.CTk):
         self.f_tc_location.pop(folder_name, None)
         self.is_vertical.pop(folder_name, None)
         self.averages.pop(folder_name, None)
+        self.fits_inlet_temps.pop(folder_name, None)
+        self.fits_flow_rates.pop(folder_name, None)
+        self.fits_has_graphite.pop(folder_name, None)
 
         self.plot_combined_linear_profile()
         
@@ -582,14 +595,34 @@ class IRISApp(ctk.CTk):
 
 # ============================ Data Import Functions ==========================
     def import_heatmap(self, folder_path):
-        heat_map_file_name = config.REQUIRED_FILES['Heat Map']
+        heatmap_file_names = config.REQUIRED_FILES['Heat Map']
         experiment = os.path.basename(folder_path)
-        for file in heat_map_file_name:
-            file_path = os.path.join(folder_path, file)
+        all_files = os.listdir(folder_path)
+
+        for file in all_files:
+            if file.endswith(('.fts', '.fits')):
+                file_path = os.path.join(folder_path, file)
+                print(file_path, file)
+                try:
+                    with fits.open(file_path) as hdul:
+                        data = hdul[0].data
+                        hdr = hdul[0].header
+                        if data is not None:
+                            self.heat_map_data[experiment] = pd.DataFrame(np.nanmean(data, axis=0))
+                            self.heat_map_data_filenames[experiment] = file
+                            self.fits_inlet_temps[experiment] = hdr.get("INLET_T", None)
+                            self.fits_flow_rates[experiment] = hdr.get("FLOWRATE", None)
+                            self.fits_has_graphite[experiment] = hdr.get("GRAPHITE", None)
+                            return
+                except Exception:
+                    continue
+
+        for csv_file in heatmap_file_names:
+            file_path = os.path.join(folder_path, csv_file)
             if os.path.isfile(file_path):
                 try:
                     self.heat_map_data[experiment] = pd.read_csv(file_path, header=None)
-                    self.heat_map_data_filenames[experiment] = file
+                    self.heat_map_data_filenames[experiment] = csv_file
                     break
                 except Exception:
                     continue
@@ -614,7 +647,7 @@ class IRISApp(ctk.CTk):
                     cols = ['Absolute_Time', 'Elapsed_Time'] + [col for col in self.sensors_data[experiment].columns if col not in ['Absolute_Time', 'Elapsed_Time']]
                     self.sensors_data[experiment] = self.sensors_data[experiment][cols]
                     self.sensors_data[experiment]['Absolute_Time'] = self.sensors_data[experiment]['Absolute_Time'].str.replace(r'(\d{2}:\d{2}:\d{2}):', r'\1.', regex=True)
-                    self.sensors_data[experiment]['Absolute_Time'] = pd.to_datetime(self.sensors_data[experiment]['Absolute_Time'],format='%H:%M:%S.%f').apply(lambda t: pd.Timestamp(year=1, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond))
+                    self.sensors_data[experiment]['Absolute_Time'] = pd.to_datetime(self.sensors_data[experiment]['Absolute_Time'],format='%H:%M:%S.%f').apply(lambda t: pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond))
                     self.sensors_data_filenames[experiment] = file
                     break
                 except Exception:
@@ -633,7 +666,7 @@ class IRISApp(ctk.CTk):
                     df = pd.read_csv(file_path, sep='\t')
                     df['time'] = pd.to_datetime(df['time'], format='%Y-%m-%d %H:%M:%S.%f') - pd.Timedelta(hours=5)
                     df['time'] = df['time'].apply(
-                        lambda t: pd.Timestamp(year=1, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
+                        lambda t: pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
                     )
                     self.flir_chamfered_data[experiment] = df
                     self.flir_chamfered_data_filenames[experiment] = file
@@ -654,7 +687,7 @@ class IRISApp(ctk.CTk):
                     df = pd.read_csv(file_path, sep='\t')
                     df['time'] = pd.to_datetime(df['time'], format='%Y-%m-%d %H:%M:%S.%f') - pd.Timedelta(hours=5)
                     df['time'] = df['time'].apply(
-                        lambda t: pd.Timestamp(year=1, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
+                        lambda t: pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
                     )
                     self.flir_filleted_data[experiment] = df
                     self.flir_filleted_data_filenames[experiment] = file
@@ -1089,6 +1122,11 @@ class IRISApp(ctk.CTk):
         self.plot_heat_map()
 
 # ============================ Plot Functions ==========================
+    def create_figure(self, font_config, fig_size, scale):
+        plt.rcParams.update(font_config)
+        fig, ax = plt.subplots(figsize=fig_size, dpi=config.FIGURE_DPI//scale)
+        return fig, ax
+
     def plot_heat_map(self):
         tab_name = self.experiments_tabs.get()
 
@@ -1101,41 +1139,34 @@ class IRISApp(ctk.CTk):
 
         data = self.heat_map_data[tab_name]
 
-        fig, ax = plt.subplots(figsize=config.FIGURE_SIZE)
-        cax = ax.imshow(data, cmap='jet', origin='lower', aspect='auto')
+        fig, ax = self.create_figure(config.HEATMAP_FONT_CONFIG, config.HEATMAP_FIGURE_SIZE, config.HEATMAP_SCALE)
+        cax = ax.imshow(data, cmap=config.HEATMAP_CMAP, origin='lower', aspect='equal')
         fig.colorbar(cax, ax=ax, label='Temperature (°C)')
 
-        ax.set_title(f'Heat Map: {tab_name}')
         ax.set_xlabel('X (pixels)')
         ax.set_ylabel('Y (pixels)')
-        ax.set_aspect('equal')
         ax.invert_yaxis()
+        ax.tick_params(direction='in', top=True, right=True)
 
-        if self.is_vertical[tab_name] == True:
-            chamfered_text_x = 0.99
-            chamfered_text_y = 0.99
-            filleted_text_x = 0.99
-            filleted_text_y = 0.01
-            chamfered_vertical = 'top'
-            chamfered_horizontal = 'right'
-            filleted_vertical = 'bottom'
-            filleted_horizontal = 'right'
+        # Side labels
+        if self.is_vertical[tab_name]:
+            chamfered_pos = (0.99, 0.99)
+            filleted_pos = (0.99, 0.01)
+            chamfered_align = ('top', 'right')
+            filleted_align = ('bottom', 'right')
+        else:
+            chamfered_pos = (0.99, 0.99)
+            filleted_pos = (0.01, 0.99)
+            chamfered_align = ('top', 'right')
+            filleted_align = ('top', 'left')
 
-        elif self.is_vertical[tab_name] == False:
-            chamfered_text_x = 0.99
-            chamfered_text_y = 0.99
-            filleted_text_x = 0.01
-            filleted_text_y = 0.99
-            chamfered_vertical = 'top'
-            chamfered_horizontal = 'right'
-            filleted_vertical = 'top'
-            filleted_horizontal = 'left'        
+        ax.text(*chamfered_pos, 'Chamfered Side', transform=ax.transAxes,
+                fontsize=config.HEATMAP_FONT_CONFIG['axes.labelsize'], color='white',
+                verticalalignment=chamfered_align[0], horizontalalignment=chamfered_align[1])
 
-        ax.text(chamfered_text_x, chamfered_text_y, 'Chamfered Side', transform=ax.transAxes,
-            fontsize=10, color='white', verticalalignment=chamfered_vertical, horizontalalignment=chamfered_horizontal)
-
-        ax.text(filleted_text_x, filleted_text_y, 'Filleted Side', transform=ax.transAxes,
-            fontsize=10, color='white', verticalalignment=filleted_vertical, horizontalalignment=filleted_horizontal)
+        ax.text(*filleted_pos, 'Filleted Side', transform=ax.transAxes,
+                fontsize=config.HEATMAP_FONT_CONFIG['axes.labelsize'], color='white',
+                verticalalignment=filleted_align[0], horizontalalignment=filleted_align[1])
 
         if self.fin_box_checkbox.get() == 1:
             plot_color = 'black'
@@ -1220,7 +1251,7 @@ class IRISApp(ctk.CTk):
 
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
+        canvas.get_tk_widget().pack(anchor='center')
 
         toolbar = NavigationToolbar2Tk(canvas, master_frame)
         toolbar.update()
@@ -1247,16 +1278,15 @@ class IRISApp(ctk.CTk):
         num_points = len(temperature_profile)
         y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
 
-        fig, ax = plt.subplots(figsize=config.FIGURE_SIZE)
-        ax.plot(y_positions_mm, temperature_profile, color='red', linewidth=2, label='Experimental Temperature Profile')
+        fig, ax = self.create_figure(config.PLOT_FONT_CONFIG, config.PLOT_FIGURE_SIZE, config.LINEAR_PROFILE_SCALE)
+        ax.plot(y_positions_mm, temperature_profile, color='red', linewidth=2, label='Experimental')
 
         if (self.simulation_checkbox.get() == 1
             and isinstance(self.simulation_data[tab_name], pd.DataFrame)
             and not self.simulation_data[tab_name].empty
         ):
-            ax.plot(self.simulation_data[tab_name]['Location'], self.simulation_data[tab_name]['Temperature'], color='blue', linewidth=2, label='Simulated Temperature Profile')
+            ax.plot(self.simulation_data[tab_name]['Location'], self.simulation_data[tab_name]['Temperature'], color='blue', linewidth=2, label='Simulated')
 
-        ax.set_title(f'Linear Temperature Profile at Midline: {tab_name}')
         ax.set_xlabel('Fin Height (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         y_min = temperature_profile.min() - 5
@@ -1265,13 +1295,13 @@ class IRISApp(ctk.CTk):
         ax.set_ylabel('Temperature (°C)')
         ax.grid(True)
 
-        ax.text(0.01, 0.99, 'Filleted Side', transform=ax.transAxes,
-            fontsize=10, color='black', verticalalignment='top', horizontalalignment='left')
+        ax.text(0.01, 1.05, 'Filleted Side', transform=ax.transAxes,
+            fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='left')
 
-        ax.text(0.99, 0.99, 'Chamfered Side', transform=ax.transAxes,
-            fontsize=10, color='black', verticalalignment='top', horizontalalignment='right')
+        ax.text(0.99, 1.05, 'Chamfered Side', transform=ax.transAxes,
+            fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='right')
 
-        ax.legend(loc='lower right')
+        ax.legend(loc='upper right')
 
         master_frame = self.experiments_tabs.tab(tab_name)
 
@@ -1293,10 +1323,9 @@ class IRISApp(ctk.CTk):
             self.current_plot_canvas[combined_tab_name]['canvas'].get_tk_widget().destroy()
             self.current_plot_canvas[combined_tab_name]['toolbar'].destroy()
 
-        fig, ax = plt.subplots(figsize=config.FIGURE_SIZE)
+        fig, ax = self.create_figure(config.PLOT_FONT_CONFIG, config.PLOT_FIGURE_SIZE, config.COMBINED_LINEAR_PROFILE_SCALE)
 
-        colors = ['red', 'blue', 'green', 'purple', 'orange', 'cyan', 'magenta', 'yellow', 'black', 'brown']
-        color_index = 0
+        profiles = []
 
         for experiment in self.current_tabs:
             if experiment == 'Combined Plot':
@@ -1311,13 +1340,40 @@ class IRISApp(ctk.CTk):
                 temperature_profile = data.iloc[self.top_edges[experiment]:self.bottom_edges[experiment], int(self.midline[experiment])].values[::-1]
             if self.is_vertical[experiment] == False:
                 temperature_profile = data.iloc[int(self.midline[experiment]), self.left_edges[experiment]:self.right_edges[experiment]].values
+ 
             num_points = len(temperature_profile)
             y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
+            max_temp = np.max(temperature_profile)
 
-            ax.plot(y_positions_mm, temperature_profile, label=experiment, color=colors[color_index % len(colors)])
-            color_index += 1
+            graphite_val = None
+            if hasattr(self, "fits_has_graphite") and experiment in self.fits_has_graphite:
+                graphite_val = self.fits_has_graphite[experiment]
 
-        ax.set_title('Combined Linear Temperature Profiles')
+            if graphite_val == 1:
+                label = "(W/ PG)"
+            elif graphite_val == 0:
+                label = "(W/O PG)"
+            else:
+                label = experiment  # fallback if unknown
+
+            profiles.append((label, y_positions_mm, temperature_profile, max_temp))
+
+        profiles.sort(key=lambda x: x[3])
+
+        cmap = cm.get_cmap(config.COMBINED_PLOT_CMAP)
+        if profiles:
+            norm = mcolors.Normalize(
+                vmin=min(p[3] for p in profiles),
+                vmax=max(p[3] for p in profiles)
+            )
+        else:
+            norm = None
+
+        for label, y_positions_mm, temperature_profile, max_temp in profiles:
+            color = cmap(norm(max_temp))
+            ax.plot(y_positions_mm, temperature_profile, label=label, color=color, linewidth=2)
+
+
         ax.set_xlabel('Fin Height (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         ax.set_ylabel('Temperature (°C)')
@@ -1326,10 +1382,10 @@ class IRISApp(ctk.CTk):
         if labels:
                 ax.legend(loc='upper right')
 
-        ax.text(0.01, 0.01, 'Filleted Side', transform=ax.transAxes,
-                fontsize=10, color='black', verticalalignment='bottom', horizontalalignment='left')
-        ax.text(0.99, 0.01, 'Chamfered Side', transform=ax.transAxes,
-                fontsize=10, color='black', verticalalignment='bottom', horizontalalignment='right')
+        ax.text(0.01, 1.05, 'Filleted Side', transform=ax.transAxes,
+                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='left')
+        ax.text(0.99, 1.05, 'Chamfered Side', transform=ax.transAxes,
+                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='right')
 
         master_frame = self.experiments_tabs.tab(combined_tab_name)
 
@@ -1364,21 +1420,38 @@ class IRISApp(ctk.CTk):
             print('Nothing selected to plot.')
             return
 
-        fig, ax1 = plt.subplots(figsize=config.FIGURE_SIZE)
+        fig, ax1 = self.create_figure(config.PLOT_FONT_CONFIG, config.PLOT_FIGURE_SIZE, config.COMBINED_LINEAR_PROFILE_SCALE)
         ax2 = None
         if (plot_tc or plot_flir or plot_inlet) and plot_flow:
             ax2 = ax1.twinx()
 
+        absolute_time_series = []
+
+        if plot_tc or plot_inlet or plot_flow:
+            try:
+                absolute_time_series.append(self.sensors_data[tab_name]['Absolute_Time'])
+            except Exception:
+                pass
+        if plot_flir:
+            try:
+                absolute_time_series.append(self.flir_chamfered_data[tab_name]['time'])
+                absolute_time_series.append(self.flir_filleted_data[tab_name]['time'])
+            except Exception:
+                pass
+        
+        minimum_absolute_time = min(series.min() for series in absolute_time_series)
+   
         time_series_list = []
 
         # ========== Plotting ==========
         try:
             if plot_tc:
-                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['ChamferTemp_C'], color='green', linestyle='-', label='TC Reading, Chamfered Edge (Inst)')
-                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FilletTemp_C'], color='red', linestyle='-', label='TC Reading, Filleted Edge (Inst)')
+                time_in_seconds=(self.sensors_data[tab_name]['Absolute_Time']-minimum_absolute_time).dt.total_seconds()
+                ax1.plot(time_in_seconds, self.sensors_data[tab_name]['ChamferTemp_C'], color='green', linestyle='-', label='TC Reading, Chamfered Edge (Inst)')
+                ax1.plot(time_in_seconds, self.sensors_data[tab_name]['FilletTemp_C'], color='red', linestyle='-', label='TC Reading, Filleted Edge (Inst)')
 
-                ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Arduino'], color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
-                ax1.axhline(y=self.averages[tab_name]['FilletTemp_Arduino'], color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
+                # ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Arduino'], color='green', linestyle='--', label='TC Reading, Chamfered Edge (Avg)')
+                # ax1.axhline(y=self.averages[tab_name]['FilletTemp_Arduino'], color='red', linestyle='--', label='TC Reading, Filleted Edge (Avg)')
 
                 time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
         except Exception:
@@ -1386,11 +1459,14 @@ class IRISApp(ctk.CTk):
 
         try:
             if plot_flir:
-                ax1.plot(self.flir_chamfered_data[tab_name]['time'], self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'], color='cyan', linestyle='-', label='FLIR Reading, Chamfered Edge (Inst)')
-                ax1.plot(self.flir_filleted_data[tab_name]['time'], self.flir_filleted_data[tab_name]['Filleted_Side_TC'], color='orange', linestyle='-', label='FLIR Reading, Filleted Edge (Inst)')
+                chamfered_time_in_seconds=(self.flir_chamfered_data[tab_name]['time']-minimum_absolute_time).dt.total_seconds()
+                filleted_time_in_seconds=(self.flir_filleted_data[tab_name]['time']-minimum_absolute_time).dt.total_seconds()
 
-                ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Flir'], color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
-                ax1.axhline(y=self.averages[tab_name]['FilletTemp_Flir'], color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
+                ax1.plot(chamfered_time_in_seconds, self.flir_chamfered_data[tab_name]['Chamfered_Side_TC'], color='cyan', linestyle='-', label='FLIR Reading, Chamfered Edge (Inst)')
+                ax1.plot(filleted_time_in_seconds, self.flir_filleted_data[tab_name]['Filleted_Side_TC'], color='orange', linestyle='-', label='FLIR Reading, Filleted Edge (Inst)')
+
+                # ax1.axhline(y=self.averages[tab_name]['ChamferTemp_Flir'], color='cyan', linestyle='--', label='FLIR Reading, Chamfered Edge (Avg)')
+                # ax1.axhline(y=self.averages[tab_name]['FilletTemp_Flir'], color='orange', linestyle='--', label='FLIR Reading, Filleted Edge (Avg)')
 
                 time_series_list.append(self.flir_chamfered_data[tab_name]['time'])
                 time_series_list.append(self.flir_filleted_data[tab_name]['time'])
@@ -1399,9 +1475,10 @@ class IRISApp(ctk.CTk):
 
         try:
             if plot_inlet:
-                ax1.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FluidTemp_C'], color='purple', linestyle='-', label='Fluid Inlet Temp (Inst)')
+                time_in_seconds=(self.sensors_data[tab_name]['Absolute_Time']-minimum_absolute_time).dt.total_seconds()
+                ax1.plot(time_in_seconds, self.sensors_data[tab_name]['FluidTemp_C'], color='purple', linestyle='-', label='Fluid Inlet Temp (Inst)')
 
-                ax1.axhline(y=self.averages[tab_name]['FluidTemp_Arduino'], color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
+                # ax1.axhline(y=self.averages[tab_name]['FluidTemp_Arduino'], color='purple', linestyle='--', label='Fluid Inlet Temp (Avg)')
 
                 time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
         except Exception:
@@ -1409,12 +1486,10 @@ class IRISApp(ctk.CTk):
 
         try:
             if plot_flow:
+                time_in_seconds=(self.sensors_data[tab_name]['Absolute_Time']-minimum_absolute_time).dt.total_seconds()
                 target_ax = ax2 if (plot_tc or plot_flir or plot_inlet) else ax1  # Use ax1 if no temperatures are selected
-
-                target_ax.plot(self.sensors_data[tab_name]['Absolute_Time'], self.sensors_data[tab_name]['FlowRate_L_per_min'], color='blue', linestyle='-', label='Flow Rate (Inst)')
-
+                target_ax.plot(time_in_seconds, self.sensors_data[tab_name]['FlowRate_L_per_min'], color='blue', linestyle='-', label='Flow Rate (Inst)')
                 target_ax.axhline(y=self.averages[tab_name]['FlowRate_Arduino'], color='blue', linestyle='--', label='Flow Rate (Avg)')
-
                 time_series_list.append(self.sensors_data[tab_name]['Absolute_Time'])
         except Exception:
             pass
@@ -1423,11 +1498,12 @@ class IRISApp(ctk.CTk):
         if time_series_list:
             min_time = min(series.min() for series in time_series_list)
             max_time = max(series.max() for series in time_series_list)
-            ax1.set_xlim(min_time, max_time)
+            min_delta = min_time - minimum_absolute_time
+            max_delta = max_time - minimum_absolute_time
+            ax1.set_xlim(min_delta.total_seconds(), max_delta.total_seconds())
 
-        ax1.set_xlabel('Time (Minutes)')
-        ax1.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax1.set_xlabel('Time (seconds)')
+        ax1.xaxis.set_major_locator(ticker.MultipleLocator(60))
         ax1.grid(True)
         for label in ax1.get_xticklabels():
             label.set_rotation(45)
@@ -1440,8 +1516,6 @@ class IRISApp(ctk.CTk):
             ax2.tick_params(axis='y', colors='blue')
             ax2.spines['right'].set_color('blue')
 
-        ax1.set_title(f'Temperature and Flow Rate vs Time for Experiment: {tab_name}')
-
         # ========== Legend and Explanatory Box ==========
         custom_lines = [
             Line2D([0], [0], color='green', lw=2, label='Chamfered Edge (TC)'),
@@ -1453,13 +1527,6 @@ class IRISApp(ctk.CTk):
         ]
 
         ax1.legend(handles=custom_lines, loc='lower right')
-
-        ax1.text(0.638, 0.08,
-                'Line Styles:\n-  Instantaneous\n-- Averaged',
-                transform=ax1.transAxes,
-                fontsize=10,
-                verticalalignment='top',
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
         plt.tight_layout()
 

@@ -22,11 +22,15 @@ pyinstaller==6.14.2
 pyinstaller-hooks-contrib==2025.6
 pyparsing==3.2.1
 pyserial==3.5
+PySide6==6.9.1
+PySide6_Addons==6.9.1
+PySide6_Essentials==6.9.1
 python-dateutil==2.9.0.post0
 pytz==2024.2
 pywin32-ctypes==0.2.3
 PyYAML==6.0.2
 scipy==1.15.3
 setuptools==80.9.0
+shiboken6==6.9.1
 six==1.17.0
 tzdata==2024.2
