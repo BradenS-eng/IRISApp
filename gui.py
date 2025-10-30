@@ -610,9 +610,9 @@ class IRISApp(ctk.CTk):
                         if data is not None:
                             self.heat_map_data[experiment] = pd.DataFrame(np.nanmean(data, axis=0))
                             self.heat_map_data_filenames[experiment] = file
-                            self.fits_inlet_temps[experiment] = hdr.get("INLET_T", None)
-                            self.fits_flow_rates[experiment] = hdr.get("FLOWRATE", None)
-                            self.fits_has_graphite[experiment] = hdr.get("GRAPHITE", None)
+                            self.fits_inlet_temps[experiment] = hdr.get('INLET_T', None)
+                            self.fits_flow_rates[experiment] = hdr.get('FLOWRATE', None)
+                            self.fits_has_graphite[experiment] = hdr.get('GRAPHITE', None)
                             return
                 except Exception:
                     continue
@@ -742,7 +742,7 @@ class IRISApp(ctk.CTk):
                     self.simulation_data_filesnames[experiment] = simulation_file
                     return
                 except Exception as e:
-                    print(f"Error reading simulation file: {e}")
+                    print(f'Error reading simulation file: {e}')
         else:
             self.simulation_data[experiment] = 'Simulation Data File Not Found'
             self.simulation_data_filesnames[experiment] = 'No File Found in Directory'
@@ -1318,12 +1318,16 @@ class IRISApp(ctk.CTk):
     def plot_combined_linear_profile(self):
         combined_tab_name = 'Combined Plot'
 
-        # Clean up old plots in the Combined tab
+        # --- Clean up old plot if it exists ---
         if combined_tab_name in self.current_plot_canvas:
             self.current_plot_canvas[combined_tab_name]['canvas'].get_tk_widget().destroy()
             self.current_plot_canvas[combined_tab_name]['toolbar'].destroy()
 
-        fig, ax = self.create_figure(config.PLOT_FONT_CONFIG, config.PLOT_FIGURE_SIZE, config.COMBINED_LINEAR_PROFILE_SCALE)
+        fig, ax = self.create_figure(
+            config.PLOT_FONT_CONFIG,
+            config.PLOT_FIGURE_SIZE,
+            config.COMBINED_LINEAR_PROFILE_SCALE
+        )
 
         profiles = []
 
@@ -1335,60 +1339,88 @@ class IRISApp(ctk.CTk):
 
             data = self.heat_map_data[experiment]
 
-            # Plot midline profile for each experiment
-            if self.is_vertical[experiment] == True:
-                temperature_profile = data.iloc[self.top_edges[experiment]:self.bottom_edges[experiment], int(self.midline[experiment])].values[::-1]
-            if self.is_vertical[experiment] == False:
-                temperature_profile = data.iloc[int(self.midline[experiment]), self.left_edges[experiment]:self.right_edges[experiment]].values
- 
+            if self.is_vertical[experiment]:
+                temperature_profile = data.iloc[
+                    self.top_edges[experiment]:self.bottom_edges[experiment],
+                    int(self.midline[experiment])
+                ].values[::-1]
+            else:
+                temperature_profile = data.iloc[
+                    int(self.midline[experiment]),
+                    self.left_edges[experiment]:self.right_edges[experiment]
+                ].values
+
             num_points = len(temperature_profile)
             y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
             max_temp = np.max(temperature_profile)
 
-            graphite_val = None
-            if hasattr(self, "fits_has_graphite") and experiment in self.fits_has_graphite:
-                graphite_val = self.fits_has_graphite[experiment]
+            def choose_comparison(self, experiment):
 
-            if graphite_val == 1:
-                label = "(W/ PG)"
-            elif graphite_val == 0:
-                label = "(W/O PG)"
-            else:
-                label = experiment  # fallback if unknown
+                def graphite_comparison():
+                    val = getattr(self, 'fits_has_graphite', {}).get(experiment, None)
+                    label = (
+                        'w/ Graphite' if val == 1 else
+                        'w/o Graphite' if val == 0 else
+                        experiment
+                    )
+                    return label, config.COMBINED_PLOT_GRAPHITE_CMAP
 
-            profiles.append((label, y_positions_mm, temperature_profile, max_temp))
+                def inlet_temp_comparison():
+                    val = getattr(self, 'fits_inlet_temps', {}).get(experiment)
+                    label = fr"$T_{{\mathrm{{in}}}}$ = {val:.1f}°C" if val is not None else experiment
+                    return label, config.COMBINED_PLOT_INLET_TEMP_CMAP
 
-        profiles.sort(key=lambda x: x[3])
+                def flow_rate_comparison():
+                    val = getattr(self, 'fits_flowrates', {}).get(experiment)
+                    label = f'Flow = {val:.2f} L/min' if val is not None else experiment
+                    return label, config.COMBINED_PLOT_FLOW_RATE_CMAP
 
-        cmap = cm.get_cmap(config.COMBINED_PLOT_CMAP)
+                builders = {
+                    0: graphite_comparison,
+                    1: inlet_temp_comparison,
+                    2: flow_rate_comparison,
+                }
+
+                builder = builders.get(config.COMPARISON_TO_USE, lambda: (experiment, 'gray'))
+                return builder()
+
+            label, cmap_name = choose_comparison(self, experiment)
+
+            profiles.append((label, y_positions_mm, temperature_profile, max_temp, cmap_name))
+
+        profiles.sort(key=lambda x: x[3], reverse=True)
+
         if profiles:
+            cmap = cm.get_cmap(profiles[0][4])
             norm = mcolors.Normalize(
                 vmin=min(p[3] for p in profiles),
                 vmax=max(p[3] for p in profiles)
             )
         else:
+            cmap = cm.get_cmap(config.COMBINED_PLOT_GRAPHITE_CMAP)
             norm = None
 
-        for label, y_positions_mm, temperature_profile, max_temp in profiles:
+        for label, y_positions_mm, temperature_profile, max_temp, _ in profiles:
             color = cmap(norm(max_temp))
             ax.plot(y_positions_mm, temperature_profile, label=label, color=color, linewidth=2)
-
 
         ax.set_xlabel('Fin Height (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         ax.set_ylabel('Temperature (°C)')
         ax.grid(True)
+
         handles, labels = ax.get_legend_handles_labels()
         if labels:
-                ax.legend(loc='upper right')
+            ax.legend(loc='upper right')
 
         ax.text(0.01, 1.05, 'Filleted Side', transform=ax.transAxes,
-                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='left')
+                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black',
+                verticalalignment='top', horizontalalignment='left')
         ax.text(0.99, 1.05, 'Chamfered Side', transform=ax.transAxes,
-                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black', verticalalignment='top', horizontalalignment='right')
+                fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black',
+                verticalalignment='top', horizontalalignment='right')
 
         master_frame = self.experiments_tabs.tab(combined_tab_name)
-
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(anchor='center')
@@ -1398,7 +1430,6 @@ class IRISApp(ctk.CTk):
         toolbar.pack()
 
         self.current_plot_canvas[combined_tab_name] = {'canvas': canvas, 'toolbar': toolbar}
-
 
     def plot_temporal_data(self):
         tab_name = self.experiments_tabs.get()
@@ -1565,9 +1596,9 @@ class IRISApp(ctk.CTk):
                     self.active_experiment = folder_name
                     os.makedirs(full_path)
 
-                    open(os.path.join(full_path, "Chamfered_Side_TC_Flir.txt"), 'w').close()
-                    open(os.path.join(full_path, "Filleted_Side_TC_Flir.txt"), 'w').close()
-                    open(os.path.join(full_path, "Heat_Map_Final_Frame.csv"), 'w').close()
+                    open(os.path.join(full_path, 'Chamfered_Side_TC_Flir.txt'), 'w').close()
+                    open(os.path.join(full_path, 'Filleted_Side_TC_Flir.txt'), 'w').close()
+                    open(os.path.join(full_path, 'Heat_Map_Final_Frame.csv'), 'w').close()
 
                     self.output_textbox.insert('end', f'[Status] No folder exists. Creating: {full_path}\n')
                     self.output_textbox.insert('end', f'[Status] Active Experiment: {self.active_experiment}\n')
@@ -1674,30 +1705,30 @@ class IRISApp(ctk.CTk):
                 self.output_textbox.see('end')
 
     def move_seq_file(self):
-        file_path = filedialog.askopenfilename(title="Select SEQ File", filetypes=[("SEQ files", "*.seq")])
+        file_path = filedialog.askopenfilename(title='Select SEQ File', filetypes=[('SEQ files', '*.seq')])
         if not file_path:
-            self.output_textbox.insert("end", "[Status] No file selected.\n")
-            self.output_textbox.see("end")
+            self.output_textbox.insert('end', '[Status] No file selected.\n')
+            self.output_textbox.see('end')
             return
 
         if not hasattr(self, 'active_experiment') or not self.active_experiment:
-            self.output_textbox.insert("end", "[Error] active_experiment is not set.\n")
-            self.output_textbox.see("end")
+            self.output_textbox.insert('end', '[Error] active_experiment is not set.\n')
+            self.output_textbox.see('end')
             return
 
-        new_file_path = Path(self.dir_entry.get().strip()) / self.active_experiment / f"{self.active_experiment}.seq"
+        new_file_path = Path(self.dir_entry.get().strip()) / self.active_experiment / f'{self.active_experiment}.seq'
 
         if os.path.exists(new_file_path):
-            self.output_textbox.insert("end", f"[Error] {new_file_path} already exists. Aborting to avoid overwrite.\n")
-            self.output_textbox.see("end")
+            self.output_textbox.insert('end', f'[Error] {new_file_path} already exists. Aborting to avoid overwrite.\n')
+            self.output_textbox.see('end')
             return
 
         try:
             shutil.move(file_path, new_file_path)
-            self.output_textbox.insert("end", f"[Status] File moved and renamed to: {new_file_path}\n")
+            self.output_textbox.insert('end', f'[Status] File moved and renamed to: {new_file_path}\n')
         except Exception as e:
-            self.output_textbox.insert("end", f"[Error] Failed to move file: {e}\n")
-        self.output_textbox.see("end")
+            self.output_textbox.insert('end', f'[Error] Failed to move file: {e}\n')
+        self.output_textbox.see('end')
 
     def stop_serial_monitor(self):
         if hasattr(self, 'ser') and self.ser.is_open:
@@ -1705,7 +1736,7 @@ class IRISApp(ctk.CTk):
             self.ser.close()
             self.output_textbox.insert('end', '[Status] Serial monitor stopped. Output Cleared.\n')
             self.output_textbox.see('end')
-            self.monitor_textbox.delete("1.0", "end")
+            self.monitor_textbox.delete('1.0', 'end')
         else:
             self.output_textbox.insert('end', '[Error] Serial port is not open.\n')
             self.output_textbox.see('end')

@@ -71,5 +71,9 @@ LINEAR_PROFILE_SCALE = 2.5  # Scale factor for linear profile resolution
 COMBINED_LINEAR_PROFILE_SCALE = 2.5  # Scale factor for combined linear profile resolution
 TEMPORAL_PLOT_SCALE = 1  # Scale factor for temporal plots
 
-COMBINED_PLOT_CMAP = 'bwr'  # Colormap for combined plots
+COMBINED_PLOT_GRAPHITE_CMAP = 'bwr'  # Colormap for combined plots
+COMBINED_PLOT_INLET_TEMP_CMAP = 'rainbow'  # Colormap for combined plots
+COMBINED_PLOT_FLOW_RATE_CMAP = 'viridis'  # Colormap for combined plots
 HEATMAP_CMAP = 'jet'    # Colormap for heat maps
+
+COMPARISON_TO_USE = 2 # 0 for graphite comparison, 1 for inlet temperature comparison, 2 for flow rate comparison
