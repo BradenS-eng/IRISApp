@@ -21,6 +21,22 @@ generate heat-map, linear-profile, and time-series plots from a single GUI.
   - temporal temperature and flow-rate data
 - Collect serial data from an Arduino and save it into an experiment folder.
 
+## Media
+
+Repository media is stored in `docs/media/`.
+
+Experimental setup:
+
+![InfraRed Imaging Station experimental setup](docs/media/iris-experimental-setup.jpeg)
+
+Representative result frame:
+
+![Representative Ti-PG infrared result frame](docs/media/ti-pg-result-frame.png)
+
+Representative result video:
+
+- [Ti-PG infrared result video](docs/media/ti-pg-results-trim.mp4)
+
 ## Project Structure
 
 ```text
@@ -31,6 +47,7 @@ IRISApp/
 |-- requirements.txt     # Python dependencies
 |-- sandbox.py           # Small FITS/FTS inspection helper
 |-- IRIS.ico             # App icon
+|-- docs/media/          # README images and representative result videos
 `-- dist/IRIS.exe        # Prebuilt Windows executable, if available
 ```
 
@@ -162,6 +179,9 @@ The generated executable will be written to `dist/`.
 ## Development Notes
 
 - Keep file-name conventions synchronized between `config.py` and this README.
+- Store README images and short result videos in `docs/media/`.
+- Add GUI screenshots as `docs/media/iris-gui-screenshot.png` when updating
+  the README interface preview.
 - Use `sandbox.py` to inspect FITS/FTS headers when adding support for new
   camera metadata fields.
 - Avoid committing generated files such as `__pycache__` unless they are
