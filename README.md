@@ -27,15 +27,15 @@ Repository media is stored in `docs/media/`.
 
 Experimental setup:
 
-![InfraRed Imaging Station experimental setup](docs/media/iris-experimental-setup.jpg)
+<img src="docs/media/iris-experimental-setup.jpg" alt="InfraRed Imaging Station experimental setup" width="700">
 
 GUI preview:
 
-![IRISApp GUI screenshot](docs/media/iris-gui-screenshot.png)
+<img src="docs/media/iris-gui-screenshot.png" alt="IRISApp GUI screenshot" width="700">
 
 Representative result frame:
 
-![Representative Ti-PG infrared result frame](docs/media/ti-pg-result-frame.png)
+<img src="docs/media/ti-pg-result-frame.png" alt="Representative Ti-PG infrared result frame" width="700">
 
 Representative result video:
 
