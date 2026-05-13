@@ -27,7 +27,11 @@ Repository media is stored in `docs/media/`.
 
 Experimental setup:
 
-![InfraRed Imaging Station experimental setup](docs/media/iris-experimental-setup.jpeg)
+![InfraRed Imaging Station experimental setup](docs/media/iris-experimental-setup.jpg)
+
+GUI preview:
+
+![IRISApp GUI screenshot](docs/media/iris-gui-screenshot.png)
 
 Representative result frame:
 
@@ -180,8 +184,6 @@ The generated executable will be written to `dist/`.
 
 - Keep file-name conventions synchronized between `config.py` and this README.
 - Store README images and short result videos in `docs/media/`.
-- Add GUI screenshots as `docs/media/iris-gui-screenshot.png` when updating
-  the README interface preview.
 - Use `sandbox.py` to inspect FITS/FTS headers when adding support for new
   camera metadata fields.
 - Avoid committing generated files such as `__pycache__` unless they are
