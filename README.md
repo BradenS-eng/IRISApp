@@ -1,7 +1,7 @@
 # IRISApp
 
-IRISApp is a desktop analysis and data-collection tool for the IRIS
-Infrared Imaging Suite. It helps organize tube-fin flow experiments, collect
+IRISApp is a desktop analysis and data-collection tool for the 
+InfraRed Imaging Station (IRIS). It helps organize tube-fin flow experiments, collect
 Arduino sensor output, import infrared/FLIR data, compare experiments, and
 generate heat-map, linear-profile, and time-series plots from a single GUI.
 
