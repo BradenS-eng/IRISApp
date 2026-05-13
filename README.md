@@ -57,15 +57,19 @@ IRISApp/
 
 ## Requirements
 
-- Windows is recommended. The app uses a Windows-style default serial port
-  (`COM3`) and the repository includes a Windows executable.
 - Python 3.11 or newer is recommended.
+- Windows is recommended for the packaged executable and default data-collection
+  settings. The app uses a Windows-style default serial port (`COM3`).
+- macOS can run the app from source with Conda, but hardware-dependent serial
+  collection may require changing `SERIAL_PORT` in `config.py`.
 - A connected Arduino is only required for the data-collection workflow.
 
 The main Python packages include CustomTkinter, pandas, NumPy, SciPy,
 Matplotlib, Astropy, PySerial, OpenCV, Pillow, and PyInstaller.
 
 ## Installation
+
+### Option 1: Windows with venv
 
 Clone the repository:
 
@@ -92,6 +96,28 @@ Install dependencies:
 
 ```powershell
 python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Option 2: macOS with Conda
+
+Clone the repository:
+
+```bash
+git clone https://github.com/BradenS-eng/IRISApp.git
+cd IRISApp
+```
+
+Create and activate a Conda environment:
+
+```bash
+conda create -n iris python=3.11
+conda activate iris
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
