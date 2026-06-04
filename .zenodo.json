@@ -1,0 +1,24 @@
+{
+  "title": "IRISApp: InfraRed Imaging Station desktop analysis and data-collection tool",
+  "upload_type": "software",
+  "description": "IRISApp is a desktop GUI for organizing InfraRed Imaging Station experiments, collecting Arduino sensor output, importing infrared and FLIR data, comparing experiments, and generating heat-map, linear temperature profile, and temporal plots.",
+  "creators": [
+    {
+      "name": "Stevens, Braden"
+    },
+    {
+      "name": "Hu, Han",
+      "affiliation": "University of Arkansas"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "infrared imaging",
+    "thermal imaging",
+    "heat transfer",
+    "data acquisition",
+    "Python",
+    "CustomTkinter"
+  ],
+  "access_right": "open"
+}
