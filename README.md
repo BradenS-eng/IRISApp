@@ -166,6 +166,27 @@ The required names are configured in `config.py`.
 6. Click **Fit In-Plane Conductivity** to fit the selected experiment's
    extracted temperature profile and report `k_in`, `m`, RMSE, and `R^2`.
 
+## Inverse Conductivity Model
+
+The conductivity fit follows the one-dimensional fin model used in Section
+III.C of the ITHERM 2026 IRIS manuscript. The selected experiment's linear
+temperature profile is normalized as a scaled temperature, then fit with a
+least-squares estimate of `m`:
+
+```text
+k H d2T/dx2 - 2 h_air (T - T_inf) = 0
+m^2 = 2 h_air / (k H)
+k = 2 h_air / (H m^2)
+```
+
+The default `flux` boundary mode uses the scaled temperature profile based on
+the fin-edge temperature at `x = L`, matching the MATLAB workflow used for the
+Ti and Ti-PG analysis. The optional `temperature` boundary mode is available in
+`config.py` for constant-temperature boundary comparisons. The fitted `k_in`
+should be interpreted as an effective, system-level in-plane thermal
+conductivity that can include contact resistance, interfacial constriction, and
+geometric spreading effects.
+
 ## Data Collection Workflow
 
 The **Data Collection** tab supports collecting serial output from an Arduino:

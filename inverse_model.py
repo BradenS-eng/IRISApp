@@ -7,6 +7,12 @@ class InverseFitError(ValueError):
 
 
 def flux_boundary_profile(x_scaled, m_value, thickness_m, length_m):
+    """Scaled 1D fin profile for a heat-flux boundary at x = 0.
+
+    This follows the inverse model used in Section III.C of the ITHERM 2026
+    manuscript. The measured temperature profile is scaled by theta(L), so the
+    fitted profile is independent of the applied heat load.
+    """
     x_scaled = np.asarray(x_scaled, dtype=float)
     argument = m_value * length_m * (1.0 - x_scaled)
     return (
@@ -16,6 +22,7 @@ def flux_boundary_profile(x_scaled, m_value, thickness_m, length_m):
 
 
 def temperature_boundary_profile(x_scaled, m_value, thickness_m, length_m):
+    """Scaled 1D fin profile for a constant-temperature boundary at x = 0."""
     x_scaled = np.asarray(x_scaled, dtype=float)
     denominator = (
         np.cosh(m_value * length_m)
@@ -34,6 +41,17 @@ def fit_in_plane_conductivity(
     boundary_mode="flux",
     boundary_temp_c=None,
 ):
+    """Fit effective in-plane thermal conductivity from a temperature profile.
+
+    The model solves the steady 1D fin equation
+
+        k H d2T/dx2 - 2 h (T - T_inf) = 0
+
+    with m^2 = 2 h / (k H). The least-squares fit estimates m, then computes
+    k = 2 h / (H m^2). This is an effective, system-level conductivity that
+    can include contact resistance, geometric spreading, and interface effects;
+    it should not be interpreted as an intrinsic material property.
+    """
     profile = np.asarray(temperature_profile_c, dtype=float)
     profile = profile[np.isfinite(profile)]
 
