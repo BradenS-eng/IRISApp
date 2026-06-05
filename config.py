@@ -77,3 +77,14 @@ COMBINED_PLOT_FLOW_RATE_CMAP = 'viridis'  # Colormap for combined plots
 HEATMAP_CMAP = 'jet'    # Colormap for heat maps
 
 COMPARISON_TO_USE = 2 # 0 for graphite comparison, 1 for inlet temperature comparison, 2 for flow rate comparison
+
+#-----------------------------------------
+# Inverse Thermal Conductivity Fit
+#-----------------------------------------
+
+INVERSE_AMBIENT_TEMP_C = 21.2
+INVERSE_FIN_THICKNESS_M = 0.001
+INVERSE_PROFILE_LENGTH_M = 0.04
+INVERSE_AIR_CONV_COEFF_W_M2K = 12
+INVERSE_INITIAL_M = 80
+INVERSE_BOUNDARY_MODE = 'flux'  # 'flux' or 'temperature'

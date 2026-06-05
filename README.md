@@ -19,6 +19,8 @@ generate heat-map, linear-profile, and time-series plots from a single GUI.
   - linear temperature profiles
   - combined profiles across selected experiments
   - temporal temperature and flow-rate data
+- Fit the extracted temperature profile with a one-dimensional fin model to
+  estimate effective in-plane thermal conductivity.
 - Collect serial data from an Arduino and save it into an experiment folder.
 
 ## Media
@@ -47,6 +49,7 @@ Representative result video:
 IRISApp/
 |-- main.py              # Application entry point
 |-- gui.py               # Main CustomTkinter GUI and data-processing logic
+|-- inverse_model.py     # Inverse fit for effective in-plane thermal conductivity
 |-- config.py            # File names, fin geometry, plotting, and serial settings
 |-- requirements.txt     # Python dependencies
 |-- sandbox.py           # Small FITS/FTS inspection helper
@@ -160,6 +163,8 @@ The required names are configured in `config.py`.
    simulation files were found.
 5. Use the plot controls to generate heat maps, linear temperature profiles,
    combined experiment comparisons, or temporal sensor plots.
+6. Click **Fit In-Plane Conductivity** to fit the selected experiment's
+   extracted temperature profile and report `k_in`, `m`, RMSE, and `R^2`.
 
 ## Data Collection Workflow
 
@@ -192,6 +197,9 @@ Most experiment-specific constants live in `config.py`, including:
 - serial port and baud rate
 - Matplotlib figure sizes, fonts, scales, and colormaps
 - comparison mode for combined plots
+- inverse thermal-conductivity fit constants: ambient temperature, fin
+  thickness, fit length, air convection coefficient, initial `m`, and boundary
+  mode
 
 Update these values before running a new experimental campaign if the geometry,
 hardware, or plotting conventions change.

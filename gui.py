@@ -23,6 +23,7 @@ import matplotlib.ticker as ticker
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from scipy.ndimage import gaussian_filter1d
+from inverse_model import InverseFitError, fit_in_plane_conductivity
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
@@ -57,6 +58,7 @@ class IRISApp(ctk.CTk):
         self.f_tc_location = {}
         self.is_vertical = {}
         self.averages = {}
+        self.inverse_fit_results = {}
         self.fits_inlet_temps = {}
         self.fits_flow_rates = {}
         self.fits_has_graphite = {}
@@ -322,6 +324,9 @@ class IRISApp(ctk.CTk):
         self.simulation_checkbox.pack(anchor='w', padx=5, pady=5)
         self.simulation_checkbox.select()
 
+        self.fit_conductivity_btn = ctk.CTkButton(self.linear_plot_frame, text='Fit In-Plane Conductivity', command=self.plot_conductivity_fit)
+        self.fit_conductivity_btn.pack(fill='x', expand=True, padx=5, pady=5)
+
         self.plot_temporal_data_frame = ctk.CTkFrame(parent)
         self.plot_temporal_data_frame.pack(anchor='w', fill='x', expand=True, padx=5, pady=5)
 
@@ -423,6 +428,14 @@ class IRISApp(ctk.CTk):
         self.flowrate_box.grid(row=6, column=1, padx=5, pady=(0, 5), sticky='ew')
         self.flowrate_box.insert(0, 'N/A')
         self.flowrate_box.configure(state='disabled')
+
+        self.k_in_label = ctk.CTkLabel(self.averages_frame, text='k_in (W/m-K)')
+        self.k_in_label.grid(row=7, column=0, sticky='w', padx=5)
+
+        self.k_in_box = ctk.CTkEntry(self.averages_frame, height=25, justify='right')
+        self.k_in_box.grid(row=8, column=0, columnspan=2, padx=5, pady=(0, 5), sticky='ew')
+        self.k_in_box.insert(0, 'N/A')
+        self.k_in_box.configure(state='disabled')
 
         self.averages_frame.grid_columnconfigure(0, weight=1)
         self.averages_frame.grid_columnconfigure(1, weight=1)
@@ -528,6 +541,7 @@ class IRISApp(ctk.CTk):
         self.f_tc_location.clear()
         self.is_vertical.clear()
         self.averages.clear()
+        self.inverse_fit_results.clear()
         self.fits_inlet_temps.clear()
         self.fits_flow_rates.clear()
         self.fits_has_graphite.clear()
@@ -571,6 +585,7 @@ class IRISApp(ctk.CTk):
         self.f_tc_location.pop(folder_name, None)
         self.is_vertical.pop(folder_name, None)
         self.averages.pop(folder_name, None)
+        self.inverse_fit_results.pop(folder_name, None)
         self.fits_inlet_temps.pop(folder_name, None)
         self.fits_flow_rates.pop(folder_name, None)
         self.fits_has_graphite.pop(folder_name, None)
@@ -963,6 +978,7 @@ class IRISApp(ctk.CTk):
         flir_chamfer_text = ''
         arduino_fluid_temp_text = ''
         arduino_flow_rate_text = ''
+        k_in_text = ''
 
         # Heatmap file
         if tab_name == 'Combined Plot':
@@ -976,6 +992,7 @@ class IRISApp(ctk.CTk):
             flir_chamfer_text = 'N/A'
             arduino_fluid_temp_text = 'N/A'
             arduino_flow_rate_text = 'N/A'
+            k_in_text = 'N/A'
         elif tab_name in self.heat_map_data_filenames and self.heat_map_data_filenames[tab_name] != 'No File Found in Directory':
             heatmap_status = self.heat_map_data_filenames[tab_name]
             heatmap_box_color = 'green'
@@ -984,16 +1001,22 @@ class IRISApp(ctk.CTk):
             chamfered_text = f'({chamfered_coords[0]}, {chamfered_coords[1]})'
             filleted_text = f'({filleted_coords[0]}, {filleted_coords[1]})'
             try:
-                ardunio_fillet_text = f'{self.averages[tab_name]['FilletTemp_Arduino']:.5f}'
-                ardunio_chamfer_text = f'{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}'
-                arduino_fluid_temp_text = f'{self.averages[tab_name]['FluidTemp_Arduino']:.5f}'
-                arduino_flow_rate_text = f'{self.averages[tab_name]['FlowRate_Arduino']:.5f}'
+                ardunio_fillet_text = f"{self.averages[tab_name]['FilletTemp_Arduino']:.5f}"
+                ardunio_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Arduino']:.5f}"
+                arduino_fluid_temp_text = f"{self.averages[tab_name]['FluidTemp_Arduino']:.5f}"
+                arduino_flow_rate_text = f"{self.averages[tab_name]['FlowRate_Arduino']:.5f}"
             except Exception:
                 pass
 
             try:
-                flir_fillet_text = f'{self.averages[tab_name]['FilletTemp_Flir']:.5f}'
-                flir_chamfer_text = f'{self.averages[tab_name]['ChamferTemp_Flir']:.5f}'
+                flir_fillet_text = f"{self.averages[tab_name]['FilletTemp_Flir']:.5f}"
+                flir_chamfer_text = f"{self.averages[tab_name]['ChamferTemp_Flir']:.5f}"
+            except Exception:
+                pass
+
+            try:
+                fit = self.inverse_fit_results[tab_name]
+                k_in_text = f"{fit['conductivity_w_mk']:.3f}"
             except Exception:
                 pass
 
@@ -1008,6 +1031,7 @@ class IRISApp(ctk.CTk):
             flir_chamfer_text = 'N/A'
             arduino_fluid_temp_text = 'N/A'
             arduino_flow_rate_text = 'N/A'
+            k_in_text = 'N/A'
 
         # Sensors file
         if tab_name == 'Combined Plot':
@@ -1119,6 +1143,11 @@ class IRISApp(ctk.CTk):
         self.flowrate_box.insert(0, arduino_flow_rate_text)
         self.flowrate_box.configure(state='disabled')
 
+        self.k_in_box.configure(state='normal')
+        self.k_in_box.delete(0, 'end')
+        self.k_in_box.insert(0, k_in_text)
+        self.k_in_box.configure(state='disabled')
+
         self.plot_heat_map()
 
 # ============================ Plot Functions ==========================
@@ -1126,6 +1155,25 @@ class IRISApp(ctk.CTk):
         plt.rcParams.update(font_config)
         fig, ax = plt.subplots(figsize=fig_size, dpi=config.FIGURE_DPI//scale)
         return fig, ax
+
+    def get_linear_temperature_profile(self, tab_name):
+        if tab_name not in self.heat_map_data or isinstance(self.heat_map_data[tab_name], str):
+            return None
+
+        data = self.heat_map_data[tab_name]
+
+        if self.is_vertical[tab_name] == True:
+            return data.iloc[
+                self.top_edges[tab_name]:self.bottom_edges[tab_name],
+                int(self.midline[tab_name])
+            ].values[::-1]
+        if self.is_vertical[tab_name] == False:
+            return data.iloc[
+                int(self.midline[tab_name]),
+                self.left_edges[tab_name]:self.right_edges[tab_name]
+            ].values
+
+        return None
 
     def plot_heat_map(self):
         tab_name = self.experiments_tabs.get()
@@ -1268,12 +1316,9 @@ class IRISApp(ctk.CTk):
             self.current_plot_canvas[tab_name]['canvas'].get_tk_widget().destroy()
             self.current_plot_canvas[tab_name]['toolbar'].destroy()
 
-        data = self.heat_map_data[tab_name]
-
-        if self.is_vertical[tab_name] == True:
-            temperature_profile = data.iloc[self.top_edges[tab_name]:self.bottom_edges[tab_name], int(self.midline[tab_name])].values[::-1]
-        if self.is_vertical[tab_name] == False:
-            temperature_profile = data.iloc[int(self.midline[tab_name]), self.left_edges[tab_name]:self.right_edges[tab_name]].values
+        temperature_profile = self.get_linear_temperature_profile(tab_name)
+        if temperature_profile is None:
+            return
 
         num_points = len(temperature_profile)
         y_positions_mm = np.linspace(0, config.FIN_HEIGHT, num_points)
@@ -1371,7 +1416,7 @@ class IRISApp(ctk.CTk):
                     return label, config.COMBINED_PLOT_INLET_TEMP_CMAP
 
                 def flow_rate_comparison():
-                    val = getattr(self, 'fits_flowrates', {}).get(experiment)
+                    val = getattr(self, 'fits_flow_rates', {}).get(experiment)
                     label = f'Flow = {val:.2f} L/min' if val is not None else experiment
                     return label, config.COMBINED_PLOT_FLOW_RATE_CMAP
 
@@ -1430,6 +1475,92 @@ class IRISApp(ctk.CTk):
         toolbar.pack()
 
         self.current_plot_canvas[combined_tab_name] = {'canvas': canvas, 'toolbar': toolbar}
+
+    def plot_conductivity_fit(self):
+        tab_name = self.experiments_tabs.get()
+        if tab_name == 'Combined Plot':
+            self.output_textbox.insert('end', '[Error] Select one experiment before fitting conductivity.\n')
+            self.output_textbox.see('end')
+            return
+
+        temperature_profile = self.get_linear_temperature_profile(tab_name)
+        if temperature_profile is None:
+            return
+
+        boundary_temp = None
+        if config.INVERSE_BOUNDARY_MODE.lower().strip() == 'temperature':
+            boundary_temp = self.fits_inlet_temps.get(tab_name)
+
+        try:
+            fit = fit_in_plane_conductivity(
+                temperature_profile,
+                ambient_temp_c=config.INVERSE_AMBIENT_TEMP_C,
+                thickness_m=config.INVERSE_FIN_THICKNESS_M,
+                length_m=config.INVERSE_PROFILE_LENGTH_M,
+                air_convection_w_m2k=config.INVERSE_AIR_CONV_COEFF_W_M2K,
+                initial_m=config.INVERSE_INITIAL_M,
+                boundary_mode=config.INVERSE_BOUNDARY_MODE,
+                boundary_temp_c=boundary_temp,
+            )
+        except InverseFitError as e:
+            self.output_textbox.insert('end', f'[Error] Conductivity fit failed: {e}\n')
+            self.output_textbox.see('end')
+            return
+
+        self.inverse_fit_results[tab_name] = fit
+
+        if tab_name in self.current_plot_canvas:
+            self.current_plot_canvas[tab_name]['canvas'].get_tk_widget().destroy()
+            self.current_plot_canvas[tab_name]['toolbar'].destroy()
+
+        fig, ax = self.create_figure(
+            config.PLOT_FONT_CONFIG,
+            config.PLOT_FIGURE_SIZE,
+            config.LINEAR_PROFILE_SCALE
+        )
+        ax.plot(fit['x_scaled'], fit['phi'], color='red', linewidth=2, label='Experimental')
+        ax.plot(fit['x_scaled'], fit['phi_fit'], color='black', linestyle='--', linewidth=2, label='Fit')
+
+        ax.set_xlabel('x/L')
+        ax.set_ylabel('Normalized temperature')
+        ax.grid(True)
+        ax.legend(loc='best')
+        ax.text(
+            0.03,
+            0.97,
+            (
+                f"k_in = {fit['conductivity_w_mk']:.3f} W/m-K\n"
+                f"m = {fit['m_fit']:.3f} 1/m\n"
+                f"R^2 = {fit['r_squared']:.4f}\n"
+                f"RMSE = {fit['rmse']:.4f}"
+            ),
+            transform=ax.transAxes,
+            verticalalignment='top',
+            bbox={'facecolor': 'white', 'alpha': 0.85, 'edgecolor': 'black'}
+        )
+
+        master_frame = self.experiments_tabs.tab(tab_name)
+        canvas = FigureCanvasTkAgg(fig, master=master_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(anchor='center')
+
+        toolbar = NavigationToolbar2Tk(canvas, master_frame)
+        toolbar.update()
+        toolbar.pack()
+
+        self.current_plot_canvas[tab_name] = {'canvas': canvas, 'toolbar': toolbar}
+        self.k_in_box.configure(state='normal')
+        self.k_in_box.delete(0, 'end')
+        self.k_in_box.insert(0, f"{fit['conductivity_w_mk']:.3f}")
+        self.k_in_box.configure(state='disabled')
+        self.output_textbox.insert(
+            'end',
+            (
+                f"[Success] {tab_name}: k_in = {fit['conductivity_w_mk']:.3f} W/m-K, "
+                f"m = {fit['m_fit']:.3f} 1/m, R^2 = {fit['r_squared']:.4f}\n"
+            )
+        )
+        self.output_textbox.see('end')
 
     def plot_temporal_data(self):
         tab_name = self.experiments_tabs.get()
