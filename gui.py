@@ -1175,6 +1175,95 @@ class IRISApp(ctk.CTk):
 
         return None
 
+    def get_inverse_temperature_profile(self, tab_name):
+        if tab_name not in self.heat_map_data or isinstance(self.heat_map_data[tab_name], str):
+            return None, None
+
+        data = self.heat_map_data[tab_name]
+        row_pixel = getattr(config, 'INVERSE_PROFILE_ROW_PIXEL', None)
+        start_pixel = getattr(config, 'INVERSE_PROFILE_START_PIXEL', None)
+        end_pixel = getattr(config, 'INVERSE_PROFILE_END_PIXEL', None)
+
+        if row_pixel is not None and start_pixel is not None and end_pixel is not None:
+            row_pixel = int(row_pixel)
+            start_pixel = int(start_pixel)
+            end_pixel = int(end_pixel)
+            if row_pixel < 0 or row_pixel >= data.shape[0]:
+                raise InverseFitError("Configured inverse-fit row is outside the heat map.")
+            if start_pixel < 0 or end_pixel >= data.shape[1] or start_pixel == end_pixel:
+                raise InverseFitError("Configured inverse-fit column window is outside the heat map.")
+
+            step = 1 if end_pixel > start_pixel else -1
+            profile = data.iloc[row_pixel, start_pixel:end_pixel + step:step].values
+            metadata = {
+                'source': 'configured pixel window',
+                'row_pixel': row_pixel,
+                'start_pixel': start_pixel,
+                'end_pixel': end_pixel,
+            }
+            return profile, metadata
+
+        side = getattr(config, 'INVERSE_PROFILE_SIDE', 'chamfered').lower().strip()
+        pixel_length = int(getattr(config, 'INVERSE_PROFILE_PIXEL_LENGTH', 200))
+        hot_band_fraction = float(getattr(config, 'INVERSE_PROFILE_HOT_BAND_FRACTION', 0.95))
+
+        if pixel_length < 4:
+            raise InverseFitError("Inverse-fit pixel length must be at least 4.")
+
+        if self.is_vertical[tab_name]:
+            column_pixel = int(getattr(config, 'INVERSE_PROFILE_COLUMN_PIXEL', None) or self.midline[tab_name])
+            if column_pixel < 0 or column_pixel >= data.shape[1]:
+                raise InverseFitError("Inverse-fit column is outside the heat map.")
+            line = data.iloc[:, column_pixel].values
+            lower_limit = self.top_edges[tab_name]
+            upper_limit = self.bottom_edges[tab_name] - 1
+        else:
+            row_pixel = int(getattr(config, 'INVERSE_PROFILE_ROW_PIXEL', None) or self.midline[tab_name])
+            if row_pixel < 0 or row_pixel >= data.shape[0]:
+                raise InverseFitError("Inverse-fit row is outside the heat map.")
+            line = data.iloc[row_pixel, :].values
+            lower_limit = self.left_edges[tab_name]
+            upper_limit = self.right_edges[tab_name] - 1
+
+        fit_region = np.asarray(line[lower_limit:upper_limit + 1], dtype=float)
+        finite_region = fit_region[np.isfinite(fit_region)]
+        if finite_region.size < 5:
+            raise InverseFitError("Could not find enough finite points in the inverse-fit region.")
+
+        peak_relative = int(np.nanargmax(fit_region))
+        peak_absolute = lower_limit + peak_relative
+        peak_temp = float(fit_region[peak_relative])
+        threshold = config.INVERSE_AMBIENT_TEMP_C + hot_band_fraction * (peak_temp - config.INVERSE_AMBIENT_TEMP_C)
+        hot_mask = fit_region >= threshold
+        hot_indices = np.where(hot_mask)[0]
+        if hot_indices.size == 0:
+            raise InverseFitError("Could not locate the hot tube-side boundary for inverse fitting.")
+
+        hot_start = peak_relative
+        while hot_start > 0 and hot_mask[hot_start - 1]:
+            hot_start -= 1
+        hot_end = peak_relative
+        while hot_end < hot_mask.size - 1 and hot_mask[hot_end + 1]:
+            hot_end += 1
+
+        if side in ('filleted', 'left', 'top'):
+            start_absolute = lower_limit + hot_start
+            end_absolute = max(lower_limit, start_absolute - pixel_length)
+            profile = line[start_absolute:end_absolute - 1:-1]
+        else:
+            start_absolute = lower_limit + hot_end
+            end_absolute = min(upper_limit, start_absolute + pixel_length)
+            profile = line[start_absolute:end_absolute + 1]
+
+        metadata = {
+            'source': 'inferred tube-wall window',
+            'side': side,
+            'peak_pixel': peak_absolute,
+            'start_pixel': start_absolute,
+            'end_pixel': end_absolute,
+        }
+        return profile, metadata
+
     def plot_heat_map(self):
         tab_name = self.experiments_tabs.get()
 
@@ -1483,7 +1572,13 @@ class IRISApp(ctk.CTk):
             self.output_textbox.see('end')
             return
 
-        temperature_profile = self.get_linear_temperature_profile(tab_name)
+        try:
+            temperature_profile, profile_metadata = self.get_inverse_temperature_profile(tab_name)
+        except InverseFitError as e:
+            self.output_textbox.insert('end', f'[Error] Conductivity fit failed: {e}\n')
+            self.output_textbox.see('end')
+            return
+
         if temperature_profile is None:
             return
 
@@ -1508,6 +1603,7 @@ class IRISApp(ctk.CTk):
             return
 
         self.inverse_fit_results[tab_name] = fit
+        self.inverse_fit_results[tab_name]['profile_metadata'] = profile_metadata
 
         if tab_name in self.current_plot_canvas:
             self.current_plot_canvas[tab_name]['canvas'].get_tk_widget().destroy()
@@ -1532,7 +1628,8 @@ class IRISApp(ctk.CTk):
                 f"k_in = {fit['conductivity_w_mk']:.3f} W/m-K\n"
                 f"m = {fit['m_fit']:.3f} 1/m\n"
                 f"R^2 = {fit['r_squared']:.4f}\n"
-                f"RMSE = {fit['rmse']:.4f}"
+                f"RMSE = {fit['rmse']:.4f}\n"
+                f"{profile_metadata['start_pixel']} -> {profile_metadata['end_pixel']} px"
             ),
             transform=ax.transAxes,
             verticalalignment='top',
@@ -1557,7 +1654,9 @@ class IRISApp(ctk.CTk):
             'end',
             (
                 f"[Success] {tab_name}: k_in = {fit['conductivity_w_mk']:.3f} W/m-K, "
-                f"m = {fit['m_fit']:.3f} 1/m, R^2 = {fit['r_squared']:.4f}\n"
+                f"m = {fit['m_fit']:.3f} 1/m, R^2 = {fit['r_squared']:.4f}, "
+                f"profile = {profile_metadata['start_pixel']} -> {profile_metadata['end_pixel']} px "
+                f"({profile_metadata['source']})\n"
             )
         )
         self.output_textbox.see('end')

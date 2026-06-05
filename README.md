@@ -164,14 +164,15 @@ The required names are configured in `config.py`.
 5. Use the plot controls to generate heat maps, linear temperature profiles,
    combined experiment comparisons, or temporal sensor plots.
 6. Click **Fit In-Plane Conductivity** to fit the selected experiment's
-   extracted temperature profile and report `k_in`, `m`, RMSE, and `R^2`.
+   one-sided tube-wall-to-fin-edge profile and report `k_in`, `m`, RMSE, and
+   `R^2`.
 
 ## Inverse Conductivity Model
 
 The conductivity fit follows the one-dimensional fin model used in Section
-III.C of the ITHERM 2026 IRIS manuscript. The selected experiment's linear
-temperature profile is normalized as a scaled temperature, then fit with a
-least-squares estimate of `m`:
+III.C of the ITHERM 2026 IRIS manuscript. The GUI extracts a one-sided profile
+from the hot tube-side boundary toward the fin edge, normalizes it as a scaled
+temperature, then fits it with a least-squares estimate of `m`:
 
 ```text
 k H d2T/dx2 - 2 h_air (T - T_inf) = 0
@@ -186,6 +187,12 @@ Ti and Ti-PG analysis. The optional `temperature` boundary mode is available in
 should be interpreted as an effective, system-level in-plane thermal
 conductivity that can include contact resistance, interfacial constriction, and
 geometric spreading effects.
+
+By default, `config.py` uses the same Ti analysis window as the original MATLAB
+workflow: Python row `119` and columns `347:547` (MATLAB row 120, columns
+348:548). Set `INVERSE_PROFILE_ROW_PIXEL`, `INVERSE_PROFILE_START_PIXEL`, and
+`INVERSE_PROFILE_END_PIXEL` to `None` to infer the fit window automatically from
+the selected experiment.
 
 ## Data Collection Workflow
 
@@ -219,8 +226,8 @@ Most experiment-specific constants live in `config.py`, including:
 - Matplotlib figure sizes, fonts, scales, and colormaps
 - comparison mode for combined plots
 - inverse thermal-conductivity fit constants: ambient temperature, fin
-  thickness, fit length, air convection coefficient, initial `m`, and boundary
-  mode
+  thickness, fit length, air convection coefficient, initial `m`, boundary
+  mode, profile side, and optional pixel window
 
 Update these values before running a new experimental campaign if the geometry,
 hardware, or plotting conventions change.

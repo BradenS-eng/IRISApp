@@ -88,3 +88,13 @@ INVERSE_PROFILE_LENGTH_M = 0.04
 INVERSE_AIR_CONV_COEFF_W_M2K = 12
 INVERSE_INITIAL_M = 80
 INVERSE_BOUNDARY_MODE = 'flux'  # 'flux' or 'temperature'
+INVERSE_PROFILE_SIDE = 'chamfered'  # 'chamfered'/'right' or 'filleted'/'left'
+INVERSE_PROFILE_PIXEL_LENGTH = 200
+INVERSE_PROFILE_HOT_BAND_FRACTION = 0.95
+
+# Python 0-based pixel indices. These defaults reproduce the MATLAB Ti fitting
+# workflow (MATLAB row 120, columns 348:548). Set all three to None to infer a
+# tube-wall-to-edge profile from the selected experiment.
+INVERSE_PROFILE_ROW_PIXEL = 119
+INVERSE_PROFILE_START_PIXEL = 347
+INVERSE_PROFILE_END_PIXEL = 547
