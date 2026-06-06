@@ -1437,6 +1437,8 @@ class IRISApp(ctk.CTk):
 
         ax.legend(loc='upper right')
 
+        fig.tight_layout(pad=1.2)
+
         master_frame = self.experiments_tabs.tab(tab_name)
 
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
@@ -1554,6 +1556,8 @@ class IRISApp(ctk.CTk):
                 fontsize=config.PLOT_FONT_CONFIG['font.size'], color='black',
                 verticalalignment='top', horizontalalignment='right')
 
+        fig.tight_layout(pad=1.2)
+
         master_frame = self.experiments_tabs.tab(combined_tab_name)
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
         canvas.draw()
@@ -1635,6 +1639,8 @@ class IRISApp(ctk.CTk):
             verticalalignment='top',
             bbox={'facecolor': 'white', 'alpha': 0.85, 'edgecolor': 'black'}
         )
+
+        fig.tight_layout(pad=1.2)
 
         master_frame = self.experiments_tabs.tab(tab_name)
         canvas = FigureCanvasTkAgg(fig, master=master_frame)
