@@ -1421,7 +1421,7 @@ class IRISApp(ctk.CTk):
         ):
             ax.plot(self.simulation_data[tab_name]['Location'], self.simulation_data[tab_name]['Temperature'], color='blue', linewidth=2, label='Simulated')
 
-        ax.set_xlabel('Fin Height (mm)')
+        ax.set_xlabel('Lateral Position Across Fin (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         y_min = temperature_profile.min() - 5
         y_max = temperature_profile.max() + 5
@@ -1540,7 +1540,7 @@ class IRISApp(ctk.CTk):
             color = cmap(norm(max_temp))
             ax.plot(y_positions_mm, temperature_profile, label=label, color=color, linewidth=2)
 
-        ax.set_xlabel('Fin Height (mm)')
+        ax.set_xlabel('Lateral Position Across Fin (mm)')
         ax.set_xlim(0, config.FIN_HEIGHT)
         ax.set_ylabel('Temperature (°C)')
         ax.grid(True)
