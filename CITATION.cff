@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use IRISApp, please cite it using the metadata in this file."
 title: "IRISApp: InfraRed Imaging Station desktop analysis and data-collection tool"
-version: "1.0.0"
-date-released: 2026-06-04
+version: "1.1.0"
+date-released: 2026-09-07
 type: software
 license: MIT
 url: "https://github.com/BradenS-eng/IRISApp"
 repository-code: "https://github.com/BradenS-eng/IRISApp"
-abstract: "IRISApp is a desktop GUI for organizing InfraRed Imaging Station experiments, collecting Arduino sensor output, importing infrared and FLIR data, comparing experiments, and generating heat-map, linear temperature profile, and temporal plots."
+abstract: "IRISApp is a desktop GUI for organizing InfraRed Imaging Station experiments, collecting Arduino sensor output, importing infrared and FLIR data, comparing experiments, generating heat-map, linear temperature profile, temporal plots, and inverse effective in-plane thermal-conductivity estimates."
 authors:
   - family-names: Stevens
     given-names: Braden
