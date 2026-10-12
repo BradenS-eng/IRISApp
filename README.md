@@ -5,6 +5,9 @@ InfraRed Imaging Station (IRIS). It helps organize tube-fin flow experiments, co
 Arduino sensor output, import infrared/FLIR data, compare experiments, and
 generate heat-map, linear-profile, and time-series plots from a single GUI.
 
+Repository scope, evidence, and reuse boundaries are also available in the
+[NED3 resource manifest](.ned3/resource-manifest-v0.1.json).
+
 ## Features
 
 - Browse an experiment directory and load each experiment as its own tab.
