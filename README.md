@@ -58,8 +58,16 @@ IRISApp/
 |-- sandbox.py           # Small FITS/FTS inspection helper
 |-- IRIS.ico             # App icon
 |-- docs/media/          # README images and representative result videos
+|-- research/            # Data-free, manuscript-specific analysis archives
 `-- dist/IRIS.exe        # Prebuilt Windows executable, if available
 ```
+
+## Research Analysis Archive
+
+The data-free scripts used for the 2026 Ti-PG radiator-fin manuscript are
+archived in [`research/tipg-radiator-fin-2026/`](research/tipg-radiator-fin-2026/).
+They preserve figure-generation logic and test mappings while excluding raw
+infrared data, unpublished workbooks, and manuscript materials.
 
 ## Requirements
 

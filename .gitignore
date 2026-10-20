@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 build/
 *.spec
+
+# Local inputs and regenerated manuscript-analysis outputs are not public data.
+research/tipg-radiator-fin-2026/data/
+research/tipg-radiator-fin-2026/outputs/
